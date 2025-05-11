@@ -1,5 +1,5 @@
 {
-  "name": "churchPresenter",
+  "name": "church-presenter",
   "version": "0.0.1",
   "private": true,
   "scripts": {
@@ -11,9 +11,14 @@
     "windows": "npx @react-native-community/cli run-windows"
   },
   "dependencies": {
+    "nativewind": "^4.1.23",
     "react": "19.0.0",
     "react-native": "^0.78.0",
-    "react-native-windows": "^0.78.0"
+    "react-native-reanimated": "^3.17.5",
+    "react-native-safe-area-context": "^5.4.0",
+    "react-native-web": "^0.20.0",
+    "react-native-windows": "^0.78.0",
+    "tailwindcss": "^3.4.17"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
@@ -31,10 +36,10 @@
     "@types/react-test-renderer": "^19.0.0",
     "eslint": "^8.19.0",
     "jest": "^29.6.3",
+    "metro-config": "^0.82.3",
     "prettier": "2.8.8",
     "react-test-renderer": "19.0.0",
-    "typescript": "5.0.4",
-    "metro-config": "^0.82.3"
+    "typescript": "5.0.4"
   },
   "engines": {
     "node": ">=18"
