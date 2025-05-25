@@ -3,12 +3,14 @@
   "productName": "church-presenter",
   "version": "1.0.0",
   "description": "My Electron application description",
-  "main": "src/index.js",
+  "main": "dist/index.js",
   "scripts": {
-    "start": "electron-forge start",
-    "package": "electron-forge package",
-    "make": "electron-forge make",
-    "publish": "electron-forge publish",
+    "build": "tsc && cp src/index.html src/index.css dist/ 2>/dev/null || true",
+    "dev": "npm run build && electron-forge start",
+    "start": "npm run build && electron-forge start",
+    "package": "npm run build && electron-forge package",
+    "make": "npm run build && electron-forge make",
+    "publish": "npm run build && electron-forge publish",
     "lint": "echo \"No linting configured\""
   },
   "keywords": [],
@@ -18,7 +20,10 @@
   },
   "license": "MIT",
   "dependencies": {
-    "electron-squirrel-startup": "^1.0.1"
+    "chokidar": "^4.0.1",
+    "electron-squirrel-startup": "^1.0.1",
+    "pptx-text-parser": "^1.0.4",
+    "sqlite3": "^5.1.7"
   },
   "devDependencies": {
     "@electron-forge/cli": "^7.8.1",
@@ -29,7 +34,13 @@
     "@electron-forge/plugin-auto-unpack-natives": "^7.8.1",
     "@electron-forge/plugin-fuses": "^7.8.1",
     "@electron/fuses": "^1.8.0",
-    "electron": "36.3.1"
+    "@types/chokidar": "^1.7.5",
+    "@types/electron": "^1.4.38",
+    "@types/node": "^22.15.21",
+    "@types/sqlite3": "^3.1.11",
+    "electron": "36.3.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
   },
   "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
 }

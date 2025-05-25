@@ -93,3 +93,24 @@ out/
 
 data
 !data/.gitkeep
+dist
+.idea
+
+# TypeScript build output
+*.tsbuildinfo
+*.d.ts.map
+
+# DuckDB database files
+*.duckdb
+*.duckdb.wal
+
+# Claude Code settings
+.claude/
+
+# Electron build artifacts
+.webpack/
+out/
+
+# macOS
+.DS_Store
+Thumbs.db

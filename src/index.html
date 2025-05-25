@@ -2,11 +2,77 @@
 <html>
   <head>
     <meta charset="UTF-8" />
-    <title>Hello World!</title>
+    <title>Church Presenter</title>
     <link rel="stylesheet" href="index.css" />
   </head>
   <body>
-    <h1>💖 Hello World!</h1>
-    <p>Welcome to your Electron application.</p>
+    <div id="app">
+      <nav class="navbar">
+        <div class="nav-brand">
+          <h1>⛪ Church Presenter</h1>
+        </div>
+        <div class="nav-menu">
+          <button id="presentations-tab" class="nav-btn active">Presentations</button>
+          <button id="settings-tab" class="nav-btn">Settings</button>
+        </div>
+      </nav>
+
+      <main class="main-content">
+        <!-- Presentations Tab -->
+        <div id="presentations-content" class="tab-content active">
+          <div class="search-section">
+            <div class="search-container">
+              <input type="text" id="search-input" placeholder="Search presentations..." />
+              <button id="search-btn">🔍</button>
+            </div>
+            <div class="filter-options">
+              <select id="sort-select">
+                <option value="view_count DESC">Most Viewed</option>
+                <option value="updated_at DESC">Recently Updated</option>
+                <option value="created_at DESC">Recently Created</option>
+                <option value="title ASC">Name A-Z</option>
+              </select>
+              <button id="favorites-filter" class="filter-btn">⭐ Favorites Only</button>
+            </div>
+          </div>
+
+          <div class="presentations-grid" id="presentations-list">
+            <!-- Presentations will be loaded here -->
+          </div>
+        </div>
+
+        <!-- Settings Tab -->
+        <div id="settings-content" class="tab-content">
+          <div class="settings-section">
+            <h2>Directory Synchronization</h2>
+            <p>Configure which directories will be monitored for presentation files:</p>
+            
+            <div class="directories-section">
+              <div id="directories-list">
+                <!-- Directory list will be loaded here -->
+              </div>
+              <div class="add-directory">
+                <input type="text" id="new-directory-input" placeholder="Enter directory path..." />
+                <button id="add-directory-btn">Add Directory</button>
+              </div>
+            </div>
+
+            <div class="sync-section">
+              <h3>Synchronization</h3>
+              <button id="sync-btn" class="sync-button">🔄 Start Full Sync</button>
+              <div id="sync-progress" class="sync-progress hidden">
+                <div class="progress-bar">
+                  <div class="progress-fill" id="progress-fill"></div>
+                </div>
+                <div class="progress-text" id="progress-text">Preparing sync...</div>
+              </div>
+              <div id="sync-status" class="sync-status"></div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <script src="renderer.js"></script>
   </body>
 </html>
