@@ -20,23 +20,32 @@ class SyncManager {
     // Load watch directories from settings
     const watchDirs = await this.getWatchDirectories();
     for (const dir of watchDirs) {
-      await this.addWatchDirectory(dir);
+      const dirPath = typeof dir === 'string' ? dir : dir.path;
+      await this.addWatchDirectory(dirPath);
     }
 
     this.isInitialized = true;
   }
 
-  async getWatchDirectories(): Promise<string[]> {
+  async getWatchDirectories(): Promise<any[]> {
     try {
       const dirsJson = await database.getSetting('watch_directories');
-      return dirsJson ? JSON.parse(dirsJson) : ['./data'];
+      const dirs = dirsJson ? JSON.parse(dirsJson) : ['./data'];
+      
+      // Convert old string format to new object format
+      return dirs.map((dir: any) => {
+        if (typeof dir === 'string') {
+          return { path: dir, priority: 'medium' };
+        }
+        return dir;
+      });
     } catch (error) {
       console.error('Error loading watch directories:', error);
-      return ['./data'];
+      return [{ path: './data', priority: 'medium' }];
     }
   }
 
-  async setWatchDirectories(directories: string[]): Promise<boolean> {
+  async setWatchDirectories(directories: any[]): Promise<boolean> {
     try {
       // Stop existing watchers
       this.stopAllWatchers();
@@ -46,7 +55,8 @@ class SyncManager {
 
       // Start new watchers
       for (const dir of directories) {
-        await this.addWatchDirectory(dir);
+        const dirPath = typeof dir === 'string' ? dir : dir.path;
+        await this.addWatchDirectory(dirPath);
       }
 
       return true;
@@ -140,8 +150,9 @@ class SyncManager {
 
       // Count total files first
       for (const dir of watchDirs) {
-        if (fs.existsSync(dir)) {
-          const files = await presentationParser.getAllFiles(dir);
+        const dirPath = typeof dir === 'string' ? dir : dir.path;
+        if (fs.existsSync(dirPath)) {
+          const files = await presentationParser.getAllFiles(dirPath);
           totalFiles += files.filter(f => presentationParser.isSupportedFile(f)).length;
         }
       }
@@ -152,13 +163,14 @@ class SyncManager {
 
       // Process each directory
       for (const dir of watchDirs) {
-        if (!fs.existsSync(dir)) {
-          console.warn(`Skipping non-existent directory: ${dir}`);
+        const dirPath = typeof dir === 'string' ? dir : dir.path;
+        if (!fs.existsSync(dirPath)) {
+          console.warn(`Skipping non-existent directory: ${dirPath}`);
           continue;
         }
 
-        console.log(`Syncing directory: ${dir}`);
-        const presentations = await presentationParser.parseDirectory(dir);
+        console.log(`Syncing directory: ${dirPath}`);
+        const presentations = await presentationParser.parseDirectory(dirPath);
 
         for (const presentation of presentations) {
           try {

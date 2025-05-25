@@ -101,6 +101,7 @@ function calculateWordScore(searchTerms: string[], text: string, normalized: boo
   return score;
 }
 
+
 // Helper function to calculate comprehensive search score
 function calculateSearchScore(searchTerms: string[], presentation: any): number {
   let totalScore = 0;
@@ -335,18 +336,90 @@ class DatabaseManager {
       // Ensure directory exists
       fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 
-      // Create SQLite database
-      this.db = new sqlite3.Database(dbPath);
+      let dbCorrupted = false;
 
-      await this.createMigrationsTable();
-      await this.runMigrations();
-      await this.createIndexes();
+      try {
+        // Create SQLite database
+        this.db = new sqlite3.Database(dbPath);
+
+        // Test if database is accessible
+        await this.testDatabaseIntegrity();
+
+        await this.createMigrationsTable();
+        await this.runMigrations();
+        await this.createIndexes();
+      } catch (error: any) {
+        if (error.message && error.message.includes('SQLITE_CORRUPT')) {
+          console.warn('Database corruption detected, attempting recovery...');
+          dbCorrupted = true;
+        } else {
+          throw error;
+        }
+      }
+
+      // Handle database corruption
+      if (dbCorrupted) {
+        await this.recoverFromCorruption(dbPath);
+      }
 
       this.isInitialized = true;
       console.log('Database initialized successfully');
     } catch (error) {
       console.error('Failed to initialize database:', error);
       throw error;
+    }
+  }
+
+  private async testDatabaseIntegrity(): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    return new Promise((resolve, reject) => {
+      this.db!.get('PRAGMA integrity_check', (err, row) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve();
+        }
+      });
+    });
+  }
+
+  private async recoverFromCorruption(dbPath: string): Promise<void> {
+    console.log('Attempting to recover from database corruption...');
+    
+    try {
+      // Close existing connection
+      if (this.db) {
+        this.db.close();
+        this.db = null;
+      }
+
+      // Create backup of corrupted database
+      const backupPath = `${dbPath}.corrupted.${Date.now()}`;
+      if (fs.existsSync(dbPath)) {
+        fs.copyFileSync(dbPath, backupPath);
+        console.log(`Corrupted database backed up to: ${backupPath}`);
+      }
+
+      // Delete corrupted database
+      if (fs.existsSync(dbPath)) {
+        fs.unlinkSync(dbPath);
+        console.log('Corrupted database file removed');
+      }
+
+      // Create new database
+      this.db = new sqlite3.Database(dbPath);
+      console.log('New database created');
+
+      // Run initialization steps
+      await this.createMigrationsTable();
+      await this.runMigrations();
+      await this.createIndexes();
+
+      console.log('Database recovery completed successfully');
+    } catch (error) {
+      console.error('Database recovery failed:', error);
+      throw new Error(`Database recovery failed: ${(error as Error).message}`);
     }
   }
 
@@ -459,26 +532,57 @@ class DatabaseManager {
     const contentNormalized = removeDiacritics(safeContent);
 
     // Use SQLite upsert syntax
-    await new Promise<void>((resolve, reject) => {
-      this.db!.run(
-        `INSERT INTO presentations (path, title, content, file_size, created_at, updated_at, title_normalized, content_normalized)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT (path) DO UPDATE SET 
-           title = EXCLUDED.title,
-           content = EXCLUDED.content,
-           file_size = EXCLUDED.file_size,
-           updated_at = EXCLUDED.updated_at,
-           title_normalized = EXCLUDED.title_normalized,
-           content_normalized = EXCLUDED.content_normalized`,
-        [safeFilePath, safeTitle, safeContent, safeFileSize, now, now, titleNormalized, contentNormalized],
-        (err) => {
-          if (err) reject(err);
-          else resolve();
-        }
-      );
-    });
+    try {
+      await new Promise<void>((resolve, reject) => {
+        this.db!.run(
+          `INSERT INTO presentations (path, title, content, file_size, created_at, updated_at, title_normalized, content_normalized)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT (path) DO UPDATE SET 
+             title = EXCLUDED.title,
+             content = EXCLUDED.content,
+             file_size = EXCLUDED.file_size,
+             updated_at = EXCLUDED.updated_at,
+             title_normalized = EXCLUDED.title_normalized,
+             content_normalized = EXCLUDED.content_normalized`,
+          [safeFilePath, safeTitle, safeContent, safeFileSize, now, now, titleNormalized, contentNormalized],
+          (err) => {
+            if (err) reject(err);
+            else resolve();
+          }
+        );
+      });
+    } catch (error: any) {
+      if (error.message && error.message.includes('SQLITE_CORRUPT')) {
+        console.error('Database corruption detected during insert/update operation');
+        throw new Error('Database corruption detected. Please restart the application to recover.');
+      }
+      throw error;
+    }
 
     return { id: safeFilePath, changes: 1 };
+  }
+
+  async recoverDatabase(): Promise<boolean> {
+    try {
+      const userDataPath = app.getPath('userData');
+      const dbPath = path.join(userDataPath, 'presentations.db');
+      
+      console.log('Manual database recovery initiated');
+      
+      // Reset initialization state
+      this.isInitialized = false;
+      
+      // Run recovery
+      await this.recoverFromCorruption(dbPath);
+      
+      this.isInitialized = true;
+      console.log('Manual database recovery completed');
+      
+      return true;
+    } catch (error) {
+      console.error('Manual database recovery failed:', error);
+      return false;
+    }
   }
 
   async searchPresentations(query: string, options: SearchOptions = {}): Promise<SearchResult[]> {

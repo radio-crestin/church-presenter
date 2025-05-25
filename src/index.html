@@ -2,18 +2,18 @@
 <html>
   <head>
     <meta charset="UTF-8" />
-    <title>Church Presenter</title>
+    <title>Prezentator Biserica</title>
     <link rel="stylesheet" href="index.css" />
   </head>
   <body>
     <div id="app">
       <nav class="navbar">
         <div class="nav-brand">
-          <h1>⛪ Church Presenter</h1>
+          <h1>⛪ Prezentator Biserica</h1>
         </div>
         <div class="nav-menu">
-          <button id="presentations-tab" class="nav-btn active">Presentations</button>
-          <button id="settings-tab" class="nav-btn">Settings</button>
+          <button id="presentations-tab" class="nav-btn active">Prezentări</button>
+          <button id="settings-tab" class="nav-btn">Setări</button>
         </div>
       </nav>
 
@@ -22,51 +22,58 @@
         <div id="presentations-content" class="tab-content active">
           <div class="search-section">
             <div class="search-container">
-              <input type="text" id="search-input" placeholder="Search presentations..." />
+              <input type="text" id="search-input" placeholder="Caută prezentări..." />
               <button id="search-btn">🔍</button>
             </div>
             <div class="filter-options">
               <select id="sort-select">
-                <option value="view_count DESC">Most Viewed</option>
-                <option value="updated_at DESC">Recently Updated</option>
-                <option value="created_at DESC">Recently Created</option>
-                <option value="title ASC">Name A-Z</option>
+                <option value="view_count DESC">Cele mai vizualizate</option>
+                <option value="updated_at DESC">Actualizate recent</option>
+                <option value="created_at DESC">Create recent</option>
+                <option value="title ASC">Nume A-Z</option>
               </select>
-              <button id="favorites-filter" class="filter-btn">⭐ Favorites Only</button>
+              <button id="favorites-filter" class="filter-btn">⭐ Doar favorite</button>
             </div>
           </div>
 
           <div class="presentations-grid" id="presentations-list">
-            <!-- Presentations will be loaded here -->
+            <!-- Prezentările vor fi încărcate aici -->
           </div>
         </div>
 
         <!-- Settings Tab -->
         <div id="settings-content" class="tab-content">
           <div class="settings-section">
-            <h2>Directory Synchronization</h2>
-            <p>Configure which directories will be monitored for presentation files:</p>
+            <h2>Sincronizare Directoare</h2>
+            <p>Configurează care directoare vor fi monitorizate pentru fișierele de prezentare:</p>
             
             <div class="directories-section">
               <div id="directories-list">
-                <!-- Directory list will be loaded here -->
+                <!-- Lista de directoare va fi încărcată aici -->
               </div>
               <div class="add-directory">
-                <input type="text" id="new-directory-input" placeholder="Enter directory path..." />
-                <button id="add-directory-btn">Add Directory</button>
+                <input type="text" id="new-directory-input" placeholder="Introdu calea directorului..." />
+                <button id="add-directory-btn">Adaugă folder</button>
               </div>
             </div>
 
             <div class="sync-section">
-              <h3>Synchronization</h3>
-              <button id="sync-btn" class="sync-button">🔄 Start Full Sync</button>
+              <h3>Sincronizare</h3>
+              <button id="sync-btn" class="sync-button">🔄 Sincronizează fișierele</button>
               <div id="sync-progress" class="sync-progress hidden">
                 <div class="progress-bar">
                   <div class="progress-fill" id="progress-fill"></div>
                 </div>
-                <div class="progress-text" id="progress-text">Preparing sync...</div>
+                <div class="progress-text" id="progress-text">Se pregătește sincronizarea...</div>
               </div>
               <div id="sync-status" class="sync-status"></div>
+            </div>
+
+            <div class="database-section">
+              <h3>Baza de Date</h3>
+              <p>Dacă întâmpinați probleme cu baza de date, puteți încerca să o reparați:</p>
+              <button id="recover-db-btn" class="recover-button">🔧 Repară Baza de Date</button>
+              <div id="recovery-status" class="recovery-status"></div>
             </div>
           </div>
         </div>

@@ -101,7 +101,7 @@ ipcMain.handle('get-watch-directories', async () => {
   }
 });
 
-ipcMain.handle('set-watch-directories', async (event: IpcMainInvokeEvent, directories: string[]) => {
+ipcMain.handle('set-watch-directories', async (event: IpcMainInvokeEvent, directories: any[]) => {
   try {
     return await syncManager.setWatchDirectories(directories);
   } catch (error) {
@@ -123,6 +123,15 @@ ipcMain.handle('perform-full-sync', async (event: IpcMainInvokeEvent) => {
 
 ipcMain.handle('get-sync-status', () => {
   return syncManager.getSyncStatus();
+});
+
+ipcMain.handle('recover-database', async () => {
+  try {
+    return await database.recoverDatabase();
+  } catch (error) {
+    console.error('Error recovering database:', error);
+    throw error;
+  }
 });
 
 // This method will be called when Electron has finished

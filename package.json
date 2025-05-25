@@ -6,7 +6,6 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc && cp src/index.html src/index.css dist/ 2>/dev/null || true",
-    "dev": "npm run build && electron-forge start",
     "start": "npm run build && electron-forge start",
     "package": "npm run build && electron-forge package",
     "make": "npm run build && electron-forge make",
@@ -22,7 +21,7 @@
   "dependencies": {
     "chokidar": "^4.0.1",
     "electron-squirrel-startup": "^1.0.1",
-    "pptx-text-parser": "^1.0.4",
+    "officeparser": "^5.1.1",
     "sqlite3": "^5.1.7"
   },
   "devDependencies": {

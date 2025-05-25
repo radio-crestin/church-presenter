@@ -6,10 +6,11 @@ interface ElectronAPI {
   updateViewCount: (path: string) => Promise<number>;
   toggleFavorite: (path: string) => Promise<number>;
   openPresentation: (path: string) => Promise<{ success: boolean }>;
-  getWatchDirectories: () => Promise<string[]>;
-  setWatchDirectories: (directories: string[]) => Promise<boolean>;
+  getWatchDirectories: () => Promise<any[]>;
+  setWatchDirectories: (directories: any[]) => Promise<boolean>;
   performFullSync: () => Promise<{ total: number; processed: number }>;
   getSyncStatus: () => Promise<{ inProgress: boolean; watchedDirectories: string[]; isInitialized: boolean }>;
+  recoverDatabase: () => Promise<boolean>;
   onSyncProgress: (callback: (progress: any) => void) => void;
   removeAllListeners: (channel: string) => void;
 }
@@ -42,6 +43,8 @@ let syncProgress: HTMLDivElement;
 let progressFill: HTMLDivElement;
 let progressText: HTMLDivElement;
 let syncStatus: HTMLDivElement;
+let recoverDbBtn: HTMLButtonElement;
+let recoveryStatus: HTMLDivElement;
 
 // Initialize DOM elements and event listeners after DOM loads
 function initializeApp() {
@@ -64,6 +67,8 @@ function initializeApp() {
     progressFill = document.getElementById('progress-fill') as HTMLDivElement;
     progressText = document.getElementById('progress-text') as HTMLDivElement;
     syncStatus = document.getElementById('sync-status') as HTMLDivElement;
+    recoverDbBtn = document.getElementById('recover-db-btn') as HTMLButtonElement;
+    recoveryStatus = document.getElementById('recovery-status') as HTMLDivElement;
 
     // Check if basic required elements exist
     const requiredElements = [
@@ -133,6 +138,34 @@ function initializeApp() {
       syncProgress.classList.add('hidden');
       syncBtn.disabled = false;
     }
+    });
+  }
+
+  // Database recovery functionality
+  if (recoverDbBtn) {
+    recoverDbBtn.addEventListener('click', async () => {
+      try {
+        recoverDbBtn.disabled = true;
+        recoveryStatus.className = 'recovery-status';
+        recoveryStatus.textContent = 'Se repară baza de date...';
+        recoveryStatus.style.display = 'block';
+        
+        const success = await window.electronAPI.recoverDatabase();
+        
+        if (success) {
+          recoveryStatus.className = 'recovery-status success';
+          recoveryStatus.textContent = 'Baza de date a fost reparată cu succes! Vă rugăm să reporniți aplicația.';
+        } else {
+          recoveryStatus.className = 'recovery-status error';
+          recoveryStatus.textContent = 'Repararea bazei de date a eșuat. Verificați jurnalele pentru detalii.';
+        }
+      } catch (error) {
+        console.error('Database recovery error:', error);
+        recoveryStatus.className = 'recovery-status error';
+        recoveryStatus.textContent = 'Eroare la repararea bazei de date. Verificați jurnalele pentru detalii.';
+      } finally {
+        recoverDbBtn.disabled = false;
+      }
     });
   }
 
@@ -225,7 +258,7 @@ async function loadPresentations() {
   } catch (error) {
     console.error('Error loading presentations:', error);
     if (presentationsList) {
-      presentationsList.innerHTML = '<div class="error">Error loading presentations</div>';
+      presentationsList.innerHTML = '<div class="error">Eroare la încărcarea prezentărilor</div>';
     }
   }
 }
@@ -237,7 +270,7 @@ function displayPresentations(presentations: any[]) {
   }
 
   if (presentations.length === 0) {
-    presentationsList.innerHTML = '<div class="empty-state">No presentations found</div>';
+    presentationsList.innerHTML = '<div class="empty-state">Nu s-au găsit prezentări</div>';
     return;
   }
 
@@ -247,7 +280,7 @@ function displayPresentations(presentations: any[]) {
         <h3 class="presentation-title">${escapeHtml(presentation.title_snippet || presentation.title)}</h3>
         <button class="favorite-btn ${presentation.is_favorite ? 'active' : ''}" 
                 onclick="event.stopPropagation(); toggleFavorite('${escapeHtml(presentation.path)}')">
-          ⭐
+          ${presentation.is_favorite ? '★' : '☆'}
         </button>
       </div>
       ${presentation.content_snippet ? `
@@ -259,7 +292,7 @@ function displayPresentations(presentations: any[]) {
         <span class="view-count">👁️ ${presentation.view_count || 0}</span>
       </div>
       <div class="presentation-dates">
-        <span>Updated: ${formatDate(presentation.updated_at)}</span>
+        <span>Actualizat: ${formatDate(presentation.updated_at)}</span>
       </div>
     </div>
   `).join('');
@@ -280,15 +313,39 @@ async function loadSettings() {
   }
 }
 
-function displayDirectories(directories: string[]) {
-  const html = directories.map(dir => `
+function displayDirectories(directories: any[]) {
+  const html = directories.map(dir => {
+    const dirPath = typeof dir === 'string' ? dir : dir.path;
+    const priority = typeof dir === 'object' ? dir.priority || 'medium' : 'medium';
+    
+    return `
     <div class="directory-item">
-      <span class="directory-path">${escapeHtml(dir)}</span>
-      <button class="remove-btn" onclick="removeDirectory('${escapeHtml(dir)}')">❌</button>
+      <div class="directory-info">
+        <span class="directory-path">${escapeHtml(dirPath)}</span>
+        <span class="directory-priority">Prioritate: ${getPriorityText(priority)}</span>
+      </div>
+      <div class="directory-controls">
+        <select class="priority-select" onchange="updateDirectoryPriority('${escapeHtml(dirPath)}', this.value)">
+          <option value="high" ${priority === 'high' ? 'selected' : ''}>Înaltă</option>
+          <option value="medium" ${priority === 'medium' ? 'selected' : ''}>Medie</option>
+          <option value="low" ${priority === 'low' ? 'selected' : ''}>Scăzută</option>
+        </select>
+        <button class="remove-directory-btn" onclick="removeDirectory('${escapeHtml(dirPath)}')" title="Șterge folder">🗑️</button>
+      </div>
     </div>
-  `).join('');
+    `;
+  }).join('');
 
   directoriesList.innerHTML = html;
+}
+
+function getPriorityText(priority: string): string {
+  switch (priority) {
+    case 'high': return 'Înaltă';
+    case 'medium': return 'Medie';
+    case 'low': return 'Scăzută';
+    default: return 'Medie';
+  }
 }
 
 async function addDirectory() {
@@ -296,8 +353,13 @@ async function addDirectory() {
   if (newDir) {
     try {
       const currentDirs = await window.electronAPI.getWatchDirectories();
-      if (!currentDirs.includes(newDir)) {
-        const updatedDirs = [...currentDirs, newDir];
+      const dirExists = currentDirs.some((dir: any) => 
+        (typeof dir === 'string' ? dir : dir.path) === newDir
+      );
+      
+      if (!dirExists) {
+        const newDirObj = { path: newDir, priority: 'medium' };
+        const updatedDirs = [...currentDirs, newDirObj];
         await window.electronAPI.setWatchDirectories(updatedDirs);
         newDirectoryInput.value = '';
         displayDirectories(updatedDirs);
@@ -312,11 +374,30 @@ async function addDirectory() {
 (window as any).removeDirectory = async (dirPath: string) => {
   try {
     const currentDirs = await window.electronAPI.getWatchDirectories();
-    const updatedDirs = currentDirs.filter((d: string) => d !== dirPath);
+    const updatedDirs = currentDirs.filter((d: any) => 
+      (typeof d === 'string' ? d : d.path) !== dirPath
+    );
     await window.electronAPI.setWatchDirectories(updatedDirs);
     displayDirectories(updatedDirs);
   } catch (error) {
     console.error('Error removing directory:', error);
+  }
+};
+
+(window as any).updateDirectoryPriority = async (dirPath: string, newPriority: string) => {
+  try {
+    const currentDirs = await window.electronAPI.getWatchDirectories();
+    const updatedDirs = currentDirs.map((d: any) => {
+      if (typeof d === 'string') {
+        return d === dirPath ? { path: d, priority: newPriority } : { path: d, priority: 'medium' };
+      } else {
+        return d.path === dirPath ? { ...d, priority: newPriority } : d;
+      }
+    });
+    await window.electronAPI.setWatchDirectories(updatedDirs);
+    displayDirectories(updatedDirs);
+  } catch (error) {
+    console.error('Error updating directory priority:', error);
   }
 };
 
@@ -338,7 +419,7 @@ async function addDirectory() {
     }
   } catch (error) {
     console.error('Error opening presentation:', error);
-    alert('Failed to open presentation. Please check if the file exists and you have the necessary software installed.');
+    alert('Nu s-a putut deschide prezentarea. Verifică dacă fișierul există și dacă ai software-ul necesar instalat.');
   }
 };
 
@@ -351,10 +432,10 @@ function updateSyncProgress(progress: any) {
 
 function updateSyncStatus(status: any) {
   if (status.inProgress) {
-    syncStatus.textContent = 'Sync in progress...';
+    syncStatus.textContent = 'Sincronizare în curs...';
     syncBtn.disabled = true;
   } else {
-    syncStatus.textContent = `Watching ${status.watchedDirectories.length} directories`;
+    syncStatus.textContent = `Se monitorizează ${status.watchedDirectories.length} directoare`;
     syncBtn.disabled = false;
   }
 }
@@ -372,11 +453,11 @@ function escapeHtml(text: string): string {
 }
 
 function formatDate(dateString: string | null): string {
-  if (!dateString) return 'Never';
+  if (!dateString) return 'Niciodată';
   try {
     return new Date(dateString).toLocaleDateString();
   } catch {
-    return 'Invalid date';
+    return 'Dată invalidă';
   }
 }
 

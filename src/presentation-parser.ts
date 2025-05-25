@@ -2,15 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import type { PresentationData } from './types';
 
-const pptxTextParser = require('pptx-text-parser');
-
-interface PPTXTextResult {
-  slides: Array<{
-    shapes: Array<{
-      text?: string;
-    }>;
-  }>;
-}
+const officeParser = require('officeparser');
 
 class PresentationParser {
   private readonly supportedExtensions = ['.pptx', '.ppt'];
@@ -31,11 +23,9 @@ class PresentationParser {
       
       let content = '';
       
-      if (path.extname(filePath).toLowerCase() === '.pptx') {
-        content = await this.parsePPTX(filePath);
-      } else if (path.extname(filePath).toLowerCase() === '.ppt') {
-        // For .ppt files, we'll need a different approach or conversion
-        content = `Legacy PowerPoint file - content extraction not yet implemented for ${fileName}`;
+      const ext = path.extname(filePath).toLowerCase();
+      if (ext === '.pptx' || ext === '.ppt') {
+        content = await this.parsePowerPoint(filePath);
       }
 
       return {
@@ -55,31 +45,37 @@ class PresentationParser {
     }
   }
 
-  private async parsePPTX(filePath: string): Promise<string> {
+  private async parsePowerPoint(filePath: string): Promise<string> {
     try {
-      const textJSON: PPTXTextResult = await pptxTextParser(filePath, 'json');
+      console.log(`Parsing PowerPoint file: ${filePath}`);
       
-      if (!textJSON || !textJSON.slides || textJSON.slides.length === 0) {
+      // Use officeparser to extract text from PowerPoint files (.ppt/.pptx)
+      const config = {
+        ignoreNotes: true, // Ignore speaker notes
+        newlineDelimiter: '\n', // Use newlines between text elements
+        putContinuousLinesInArray: false // Keep text as string
+      };
+
+      const data = await officeParser.parseOfficeAsync(filePath, config);
+      console.log(`Raw extracted data type: ${typeof data}, length: ${data?.length || 0}`);
+      
+      if (!data || typeof data !== 'string' || data.trim().length === 0) {
+        console.warn(`No text content found in presentation: ${filePath}`);
         return 'No text content found in presentation';
       }
 
-      // Extract text from each slide and join with delimiter
-      const content = textJSON.slides
-        .map(slide => {
-          // Extract text from slide shapes
-          const slideText = slide.shapes
-            .map(shape => shape.text || '')
-            .join(' ')
-            .trim();
-          return slideText;
-        })
-        .filter(slideText => slideText.length > 0)
-        .join('\n----\n');
+      // Clean up the extracted text
+      const cleanedText = data
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0)
+        .join('\n');
 
-      return content || 'No text content found in presentation';
+      console.log(`Successfully extracted ${cleanedText.length} characters from ${filePath}`);
+      return cleanedText || 'No text content found in presentation';
     } catch (error) {
-      console.error(`Error parsing PPTX file ${filePath}:`, error);
-      throw new Error(`Failed to parse PPTX: ${(error as Error).message}`);
+      console.error(`Error parsing PowerPoint file ${filePath}:`, error);
+      throw new Error(`Failed to parse PowerPoint file: ${(error as Error).message}`);
     }
   }
 
