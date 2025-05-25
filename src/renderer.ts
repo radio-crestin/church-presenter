@@ -6,8 +6,12 @@ interface ElectronAPI {
   updateViewCount: (path: string) => Promise<number>;
   toggleFavorite: (path: string) => Promise<number>;
   openPresentation: (path: string) => Promise<{ success: boolean }>;
-  getWatchDirectories: () => Promise<any[]>;
-  setWatchDirectories: (directories: any[]) => Promise<boolean>;
+  getCategories: () => Promise<any[]>;
+  createCategory: (name: string, orderIndex?: number) => Promise<number>;
+  updateCategory: (id: number, name?: string, orderIndex?: number) => Promise<number>;
+  deleteCategory: (id: number) => Promise<number>;
+  addFolderToCategory: (categoryId: number, path: string, name?: string) => Promise<number>;
+  removeFolderFromCategory: (folderId: number) => Promise<number>;
   performFullSync: () => Promise<{ total: number; processed: number }>;
   getSyncStatus: () => Promise<{ inProgress: boolean; watchedDirectories: string[]; isInitialized: boolean }>;
   recoverDatabase: () => Promise<boolean>;
@@ -38,8 +42,9 @@ let sortSelect: HTMLSelectElement;
 let favoritesFilter: HTMLButtonElement;
 let presentationsList: HTMLDivElement;
 let searchLoading: HTMLDivElement;
-let directoriesList: HTMLDivElement;
-let addDirectoryBtn: HTMLButtonElement;
+let categoriesList: HTMLDivElement;
+let addCategoryBtn: HTMLButtonElement;
+let categoryNameInput: HTMLInputElement;
 let syncBtn: HTMLButtonElement;
 let syncProgress: HTMLDivElement;
 let progressFill: HTMLDivElement;
@@ -63,8 +68,9 @@ function initializeApp() {
     favoritesFilter = document.getElementById('favorites-filter') as HTMLButtonElement;
     presentationsList = document.getElementById('presentations-list') as HTMLDivElement;
     searchLoading = document.getElementById('search-loading') as HTMLDivElement;
-    directoriesList = document.getElementById('directories-list') as HTMLDivElement;
-    addDirectoryBtn = document.getElementById('add-directory-btn') as HTMLButtonElement;
+    categoriesList = document.getElementById('categories-list') as HTMLDivElement;
+    addCategoryBtn = document.getElementById('add-category-btn') as HTMLButtonElement;
+    categoryNameInput = document.getElementById('category-name-input') as HTMLInputElement;
     syncBtn = document.getElementById('sync-btn') as HTMLButtonElement;
     syncProgress = document.getElementById('sync-progress') as HTMLDivElement;
     progressFill = document.getElementById('progress-fill') as HTMLDivElement;
@@ -76,7 +82,10 @@ function initializeApp() {
     // Check if basic required elements exist
     const requiredElements = [
       { name: 'searchInput', element: searchInput },
-      { name: 'presentationsList', element: presentationsList }
+      { name: 'presentationsList', element: presentationsList },
+      { name: 'categoriesList', element: categoriesList },
+      { name: 'addCategoryBtn', element: addCategoryBtn },
+      { name: 'categoryNameInput', element: categoryNameInput }
     ];
 
     console.log('Checking for required DOM elements...');
@@ -113,8 +122,15 @@ function initializeApp() {
   }
 
   // Settings functionality
-  if (addDirectoryBtn) {
-    addDirectoryBtn.addEventListener('click', addDirectory);
+  if (addCategoryBtn) {
+    addCategoryBtn.addEventListener('click', createCategory);
+  }
+  if (categoryNameInput) {
+    categoryNameInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        createCategory();
+      }
+    });
   }
 
   // Sync functionality
@@ -327,8 +343,8 @@ function displayPresentations(presentations: any[]) {
 // Settings functionality
 async function loadSettings() {
   try {
-    const directories = await window.electronAPI.getWatchDirectories();
-    displayDirectories(directories);
+    const categories = await window.electronAPI.getCategories();
+    displayCategories(categories);
     
     const status = await window.electronAPI.getSyncStatus();
     updateSyncStatus(status);
@@ -337,55 +353,91 @@ async function loadSettings() {
   }
 }
 
-function displayDirectories(directories: any[]) {
-  const html = directories.map(dir => {
-    const dirPath = typeof dir === 'string' ? dir : dir.path;
-    const priority = typeof dir === 'object' ? dir.priority || 'medium' : 'medium';
+function displayCategories(categories: any[]) {
+  if (!categoriesList) {
+    console.error('categoriesList element not found');
+    return;
+  }
+
+  const html = categories.map(category => {
+    const folders = category.folders || [];
     
     return `
-    <div class="directory-item">
-      <div class="directory-info">
-        <span class="directory-path">${escapeHtml(dirPath)}</span>
-        <span class="directory-priority">Prioritate: ${getPriorityText(priority)}</span>
+    <div class="category-item" data-category-id="${category.id}">
+      <div class="category-header">
+        <div class="category-info">
+          <h3 class="category-name" contenteditable="true" onblur="updateCategoryName(${category.id}, this.textContent)">${escapeHtml(category.name)}</h3>
+          <span class="category-stats">${folders.length} foldere</span>
+        </div>
+        <div class="category-controls">
+          <input type="number" class="order-input" value="${category.order_index}" onchange="updateCategoryOrder(${category.id}, this.value)" title="Index ordine">
+          <button class="add-folder-btn" onclick="addFolderToCategory(${category.id})" title="Adaugă folder">📁+</button>
+          <button class="delete-category-btn" onclick="deleteCategory(${category.id})" title="Șterge categoria">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+              <line x1="10" y1="11" x2="10" y2="17"/>
+              <line x1="14" y1="11" x2="14" y2="17"/>
+            </svg>
+          </button>
+        </div>
       </div>
-      <div class="directory-controls">
-        <select class="priority-select" onchange="updateDirectoryPriority('${escapeHtml(dirPath)}', this.value)">
-          <option value="high" ${priority === 'high' ? 'selected' : ''}>Înaltă</option>
-          <option value="medium" ${priority === 'medium' ? 'selected' : ''}>Medie</option>
-          <option value="low" ${priority === 'low' ? 'selected' : ''}>Scăzută</option>
-        </select>
-        <button class="remove-directory-btn" onclick="removeDirectory('${escapeHtml(dirPath)}')" title="Șterge folder">🗑️</button>
+      <div class="folders-list">
+        ${folders.map((folder: any) => `
+          <div class="folder-item">
+            <span class="folder-path" title="${escapeHtml(folder.path)}">${escapeHtml(folder.name || folder.path)}</span>
+            <button class="remove-folder-btn" onclick="removeFolderFromCategory(${folder.id})" title="Șterge folder">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
+        `).join('')}
       </div>
     </div>
     `;
   }).join('');
 
-  directoriesList.innerHTML = html;
+  categoriesList.innerHTML = html;
 }
 
-function getPriorityText(priority: string): string {
-  switch (priority) {
-    case 'high': return 'Înaltă';
-    case 'medium': return 'Medie';
-    case 'low': return 'Scăzută';
-    default: return 'Medie';
+async function createCategory() {
+  try {
+    if (!categoryNameInput) {
+      console.error('Category name input not found');
+      return;
+    }
+
+    const categoryName = categoryNameInput.value.trim();
+    if (!categoryName) {
+      alert('Te rog introdu un nume pentru categorie.');
+      return;
+    }
+
+    // Get current categories to determine next order index
+    const categories = await window.electronAPI.getCategories();
+    const maxOrder = categories.length > 0 ? Math.max(...categories.map(c => c.order_index)) : -1;
+    const orderIndex = maxOrder + 1;
+
+    await window.electronAPI.createCategory(categoryName, orderIndex);
+    categoryNameInput.value = '';
+    
+    // Reload settings to show new category
+    loadSettings();
+    
+  } catch (error) {
+    console.error('Error creating category:', error);
+    alert(`Eroare la crearea categoriei: ${error instanceof Error ? error.message : 'Încearcă din nou.'}`);
   }
 }
 
-async function addDirectory() {
+async function addFolderToCategory(categoryId: number) {
   try {
-    console.log('Starting folder selection...');
+    console.log('Starting folder selection for category:', categoryId);
     
     // Open folder selection dialog
     const result = await window.electronAPI.selectFolder();
     console.log('Folder selection result:', JSON.stringify(result, null, 2));
-    console.log('Result type:', typeof result);
-    console.log('Result keys:', Object.keys(result || {}));
-    console.log('Result canceled:', result?.canceled);
-    console.log('Result filePaths:', result?.filePaths);
-    console.log('FilePaths type:', typeof result?.filePaths);
-    console.log('FilePaths is array:', Array.isArray(result?.filePaths));
-    console.log('FilePaths length:', result?.filePaths?.length);
     
     // Check if user canceled the dialog
     if (result?.canceled === true) {
@@ -404,11 +456,6 @@ async function addDirectory() {
     
     if (result.filePaths.length === 0) {
       console.log('No folder selected - filePaths array is empty');
-      console.log('This might happen if:');
-      console.log('1. User clicked Cancel (but canceled flag is false)');
-      console.log('2. User closed dialog without selecting');
-      console.log('3. Dialog API issue on this platform');
-      // Don't show alert for empty selection as user might have just canceled
       return;
     }
     
@@ -421,32 +468,23 @@ async function addDirectory() {
       return;
     }
     
-    const currentDirs = await window.electronAPI.getWatchDirectories();
-    console.log('Current directories:', currentDirs);
-    
-    // Check if folder already exists
-    const dirExists = currentDirs.some((dir: any) => 
-      (typeof dir === 'string' ? dir : dir.path) === selectedFolder
+    // Check if folder already exists in any category
+    const categories = await window.electronAPI.getCategories();
+    const folderExists = categories.some(category => 
+      category.folder_paths && category.folder_paths.includes(selectedFolder)
     );
     
-    if (dirExists) {
-      console.log('Folder already exists');
-      alert('Acest folder este deja monitorizat.');
+    if (folderExists) {
+      console.log('Folder already exists in a category');
+      alert('Acest folder este deja monitorizat într-o categorie.');
       return;
     }
     
-    // Add the new directory
-    const newDirObj = { path: selectedFolder, priority: 'medium' };
-    const updatedDirs = [...currentDirs, newDirObj];
-    console.log('Adding new directory:', newDirObj);
-    console.log('Updated directories:', updatedDirs);
+    await window.electronAPI.addFolderToCategory(categoryId, selectedFolder);
+    console.log('Folder added to category successfully');
     
-    await window.electronAPI.setWatchDirectories(updatedDirs);
-    console.log('Directories updated successfully');
-    
-    // Update display
-    displayDirectories(updatedDirs);
-    console.log('Display updated');
+    // Reload settings to show updated category
+    loadSettings();
     
     // Automatically trigger sync for the new folder
     if (syncBtn && !syncBtn.disabled) {
@@ -457,39 +495,64 @@ async function addDirectory() {
     }
     
   } catch (error) {
-    console.error('Error adding directory:', error);
+    console.error('Error adding folder to category:', error);
     alert(`Eroare la adăugarea folderului: ${error instanceof Error ? error.message : 'Verifică permisiunile și încearcă din nou.'}`);
   }
 }
 
 // Global functions for onclick handlers
-(window as any).removeDirectory = async (dirPath: string) => {
+(window as any).updateCategoryName = async (categoryId: number, newName: string) => {
   try {
-    const currentDirs = await window.electronAPI.getWatchDirectories();
-    const updatedDirs = currentDirs.filter((d: any) => 
-      (typeof d === 'string' ? d : d.path) !== dirPath
-    );
-    await window.electronAPI.setWatchDirectories(updatedDirs);
-    displayDirectories(updatedDirs);
+    const trimmedName = newName?.trim();
+    if (!trimmedName) {
+      loadSettings(); // Reload to reset the name
+      return;
+    }
+    await window.electronAPI.updateCategory(categoryId, trimmedName);
   } catch (error) {
-    console.error('Error removing directory:', error);
+    console.error('Error updating category name:', error);
+    loadSettings(); // Reload on error
   }
 };
 
-(window as any).updateDirectoryPriority = async (dirPath: string, newPriority: string) => {
+(window as any).updateCategoryOrder = async (categoryId: number, newOrder: string) => {
   try {
-    const currentDirs = await window.electronAPI.getWatchDirectories();
-    const updatedDirs = currentDirs.map((d: any) => {
-      if (typeof d === 'string') {
-        return d === dirPath ? { path: d, priority: newPriority } : { path: d, priority: 'medium' };
-      } else {
-        return d.path === dirPath ? { ...d, priority: newPriority } : d;
-      }
-    });
-    await window.electronAPI.setWatchDirectories(updatedDirs);
-    displayDirectories(updatedDirs);
+    const orderIndex = parseInt(newOrder, 10);
+    if (isNaN(orderIndex)) {
+      loadSettings(); // Reload to reset the order
+      return;
+    }
+    await window.electronAPI.updateCategory(categoryId, undefined, orderIndex);
+    loadSettings(); // Reload to show updated order
   } catch (error) {
-    console.error('Error updating directory priority:', error);
+    console.error('Error updating category order:', error);
+    loadSettings(); // Reload on error
+  }
+};
+
+(window as any).deleteCategory = async (categoryId: number) => {
+  try {
+    if (confirm('Ești sigur că vrei să ștergi această categorie? Toate folderele din categorie vor fi eliminate din monitorizare.')) {
+      await window.electronAPI.deleteCategory(categoryId);
+      loadSettings(); // Reload to show updated categories
+    }
+  } catch (error) {
+    console.error('Error deleting category:', error);
+    alert('Eroare la ștergerea categoriei. Încearcă din nou.');
+  }
+};
+
+(window as any).addFolderToCategory = addFolderToCategory;
+
+(window as any).removeFolderFromCategory = async (folderId: number) => {
+  try {
+    if (confirm('Ești sigur că vrei să ștergi acest folder din monitorizare?')) {
+      await window.electronAPI.removeFolderFromCategory(folderId);
+      loadSettings(); // Reload to show updated categories
+    }
+  } catch (error) {
+    console.error('Error removing folder from category:', error);
+    alert('Eroare la ștergerea folderului. Încearcă din nou.');
   }
 };
 

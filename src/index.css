@@ -400,80 +400,27 @@ body {
   color: #666;
 }
 
-.directories-section {
+/* Categories Section */
+.categories-section {
   margin-bottom: 2rem;
 }
 
-.directory-item {
+.add-category {
   display: flex;
-  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
   align-items: center;
+}
+
+#category-name-input {
+  flex: 1;
   padding: 0.75rem;
-  background-color: #f8f9fa;
   border: 1px solid #ddd;
   border-radius: 4px;
-  margin-bottom: 0.5rem;
-  gap: 1rem;
+  font-size: 1rem;
 }
 
-.directory-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.directory-path {
-  font-family: monospace;
-  color: #333;
-  font-size: 0.9rem;
-}
-
-.directory-priority {
-  font-size: 0.8rem;
-  color: #666;
-}
-
-.directory-controls {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.priority-select {
-  padding: 0.25rem 0.5rem;
-  border: 1px solid #ddd;
-  border-radius: 3px;
-  font-size: 0.8rem;
-  min-width: 80px;
-}
-
-.remove-directory-btn {
-  background-color: #dc3545;
-  color: white;
-  border: none;
-  padding: 0.35rem 0.6rem;
-  border-radius: 50%;
-  cursor: pointer;
-  font-size: 0.9rem;
-  width: 30px;
-  height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-}
-
-.remove-directory-btn:hover {
-  background-color: #c82333;
-  transform: scale(1.1);
-}
-
-.add-directory {
-  margin-top: 1rem;
-}
-
-.add-folder-btn {
+.add-category-btn {
   padding: 0.75rem 1.5rem;
   background-color: #28a745;
   color: white;
@@ -485,10 +432,172 @@ body {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.add-category-btn:hover {
+  background-color: #218838;
+}
+
+/* Category Item */
+.category-item {
+  background-color: #f8f9fa;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  overflow: hidden;
+}
+
+.category-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background-color: #fff;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.category-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.category-name {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+  padding: 0.25rem;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background-color: transparent;
+  transition: all 0.2s;
+}
+
+.category-name:focus {
+  outline: none;
+  border-color: #4a90e2;
+  background-color: #f8f9fa;
+}
+
+.category-stats {
+  font-size: 0.8rem;
+  color: #666;
+}
+
+.category-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.order-input {
+  width: 60px;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 3px;
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.add-folder-btn {
+  padding: 0.5rem 0.75rem;
+  background-color: #17a2b8;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
 }
 
 .add-folder-btn:hover {
-  background-color: #218838;
+  background-color: #138496;
+}
+
+.delete-category-btn {
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  padding: 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.delete-category-btn:hover {
+  background-color: #c82333;
+  transform: scale(1.05);
+}
+
+.delete-category-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Folders List */
+.folders-list {
+  padding: 0;
+}
+
+.folder-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e9ecef;
+  transition: background-color 0.2s;
+}
+
+.folder-item:last-child {
+  border-bottom: none;
+}
+
+.folder-item:hover {
+  background-color: #f1f3f4;
+}
+
+.folder-path {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Mono', monospace;
+  color: #495057;
+  font-size: 0.9rem;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.remove-folder-btn {
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  padding: 0.25rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.7;
+}
+
+.remove-folder-btn:hover {
+  background-color: #dc3545;
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+.remove-folder-btn svg {
+  width: 14px;
+  height: 14px;
 }
 
 .sync-section h3 {

@@ -92,20 +92,66 @@ ipcMain.handle('open-presentation', async (event: IpcMainInvokeEvent, presentati
   }
 });
 
-ipcMain.handle('get-watch-directories', async () => {
+// Category management handlers
+ipcMain.handle('get-categories', async () => {
   try {
-    return await syncManager.getWatchDirectories();
+    return await database.getCategories();
   } catch (error) {
-    console.error('Error getting watch directories:', error);
+    console.error('Error getting categories:', error);
     throw error;
   }
 });
 
-ipcMain.handle('set-watch-directories', async (event: IpcMainInvokeEvent, directories: any[]) => {
+ipcMain.handle('create-category', async (event: IpcMainInvokeEvent, name: string, orderIndex?: number) => {
   try {
-    return await syncManager.setWatchDirectories(directories);
+    const categoryId = await database.createCategory(name, orderIndex);
+    await syncManager.refreshWatchers();
+    return categoryId;
   } catch (error) {
-    console.error('Error setting watch directories:', error);
+    console.error('Error creating category:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('update-category', async (event: IpcMainInvokeEvent, id: number, name?: string, orderIndex?: number) => {
+  try {
+    const result = await database.updateCategory(id, name, orderIndex);
+    return result;
+  } catch (error) {
+    console.error('Error updating category:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('delete-category', async (event: IpcMainInvokeEvent, id: number) => {
+  try {
+    const result = await database.deleteCategory(id);
+    await syncManager.refreshWatchers();
+    return result;
+  } catch (error) {
+    console.error('Error deleting category:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('add-folder-to-category', async (event: IpcMainInvokeEvent, categoryId: number, path: string, name?: string) => {
+  try {
+    const folderId = await database.addFolderToCategory(categoryId, path, name);
+    await syncManager.refreshWatchers();
+    return folderId;
+  } catch (error) {
+    console.error('Error adding folder to category:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('remove-folder-from-category', async (event: IpcMainInvokeEvent, folderId: number) => {
+  try {
+    const result = await database.removeFolderFromCategory(folderId);
+    await syncManager.refreshWatchers();
+    return result;
+  } catch (error) {
+    console.error('Error removing folder from category:', error);
     throw error;
   }
 });

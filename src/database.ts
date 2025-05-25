@@ -325,6 +325,63 @@ class DatabaseManager {
           });
         });
       }
+    },
+    {
+      version: 4,
+      description: 'Add categories and folders tables for organized directory management',
+      up: async (db: sqlite3.Database) => {
+        return new Promise((resolve, reject) => {
+          db.serialize(() => {
+            // Create categories table
+            db.run(`
+              CREATE TABLE IF NOT EXISTS categories (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                order_index INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+              )
+            `, (err) => {
+              if (err) return reject(err);
+            });
+            
+            // Create folders table
+            db.run(`
+              CREATE TABLE IF NOT EXISTS folders (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                category_id INTEGER NOT NULL,
+                path TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (category_id) REFERENCES categories (id) ON DELETE CASCADE
+              )
+            `, (err) => {
+              if (err) return reject(err);
+            });
+            
+            // Create indexes for better performance
+            db.run(`
+              CREATE INDEX IF NOT EXISTS idx_categories_order ON categories(order_index)
+            `, (err) => {
+              if (err) return reject(err);
+            });
+            
+            db.run(`
+              CREATE INDEX IF NOT EXISTS idx_folders_category ON folders(category_id)
+            `, (err) => {
+              if (err) return reject(err);
+            });
+            
+            db.run(`
+              CREATE INDEX IF NOT EXISTS idx_folders_path ON folders(path)
+            `, (err) => {
+              if (err) return reject(err);
+              resolve(undefined);
+            });
+          });
+        });
+      }
     }
   ];
 
@@ -1098,6 +1155,161 @@ class DatabaseManager {
           else resolve();
         }
       );
+    });
+  }
+
+  // Category management methods
+  async getCategories(): Promise<any[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    // First get all categories
+    const categoriesSql = `
+      SELECT * FROM categories
+      ORDER BY order_index ASC, name ASC
+    `;
+
+    const categories = await new Promise<any[]>((resolve, reject) => {
+      this.db!.all(categoriesSql, [], (err, rows: any[]) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    });
+
+    // Then get folders for each category
+    for (const category of categories) {
+      const foldersSql = `
+        SELECT id, path, name FROM folders
+        WHERE category_id = ?
+        ORDER BY id ASC
+      `;
+
+      const folders = await new Promise<any[]>((resolve, reject) => {
+        this.db!.all(foldersSql, [category.id], (err, rows: any[]) => {
+          if (err) reject(err);
+          else resolve(rows);
+        });
+      });
+
+      category.folders = folders;
+      category.folder_count = folders.length;
+      category.folder_paths = folders.map(f => f.path);
+    }
+
+    return categories;
+  }
+
+  async createCategory(name: string, orderIndex: number = 0): Promise<number> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const now = new Date().toISOString();
+
+    return new Promise((resolve, reject) => {
+      this.db!.run(
+        'INSERT INTO categories (name, order_index, created_at, updated_at) VALUES (?, ?, ?, ?)',
+        [name, orderIndex, now, now],
+        function(err) {
+          if (err) reject(err);
+          else resolve(this.lastID);
+        }
+      );
+    });
+  }
+
+  async updateCategory(id: number, name?: string, orderIndex?: number): Promise<number> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const updates: string[] = [];
+    const params: any[] = [];
+
+    if (name !== undefined) {
+      updates.push('name = ?');
+      params.push(name);
+    }
+
+    if (orderIndex !== undefined) {
+      updates.push('order_index = ?');
+      params.push(orderIndex);
+    }
+
+    if (updates.length === 0) {
+      return 0;
+    }
+
+    updates.push('updated_at = ?');
+    params.push(new Date().toISOString());
+    params.push(id);
+
+    const sql = `UPDATE categories SET ${updates.join(', ')} WHERE id = ?`;
+
+    return new Promise((resolve, reject) => {
+      this.db!.run(sql, params, function(err) {
+        if (err) reject(err);
+        else resolve(this.changes);
+      });
+    });
+  }
+
+  async deleteCategory(id: number): Promise<number> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    return new Promise((resolve, reject) => {
+      this.db!.run(
+        'DELETE FROM categories WHERE id = ?',
+        [id],
+        function(err) {
+          if (err) reject(err);
+          else resolve(this.changes);
+        }
+      );
+    });
+  }
+
+  async addFolderToCategory(categoryId: number, path: string, name?: string): Promise<number> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const folderName = name || path.split('/').pop() || path;
+    const now = new Date().toISOString();
+
+    return new Promise((resolve, reject) => {
+      this.db!.run(
+        'INSERT INTO folders (category_id, path, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+        [categoryId, path, folderName, now, now],
+        function(err) {
+          if (err) reject(err);
+          else resolve(this.lastID);
+        }
+      );
+    });
+  }
+
+  async removeFolderFromCategory(folderId: number): Promise<number> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    return new Promise((resolve, reject) => {
+      this.db!.run(
+        'DELETE FROM folders WHERE id = ?',
+        [folderId],
+        function(err) {
+          if (err) reject(err);
+          else resolve(this.changes);
+        }
+      );
+    });
+  }
+
+  async getAllFolderPaths(): Promise<string[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const sql = 'SELECT path FROM folders ORDER BY category_id, id';
+
+    return new Promise((resolve, reject) => {
+      this.db!.all(sql, [], (err, rows: any[]) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(rows.map(row => row.path));
+        }
+      });
     });
   }
 

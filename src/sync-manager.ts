@@ -23,64 +23,43 @@ class SyncManager {
     this.workerPool = new WorkerPool();
     await this.workerPool.initialize();
 
-    // Load watch directories from settings
+    // Load watch directories from database
     const watchDirs = await this.getWatchDirectories();
-    for (const dir of watchDirs) {
-      const dirPath = typeof dir === 'string' ? dir : dir.path;
+    for (const dirPath of watchDirs) {
       await this.addWatchDirectory(dirPath);
     }
 
     this.isInitialized = true;
   }
 
-  async getWatchDirectories(): Promise<any[]> {
+  async getWatchDirectories(): Promise<string[]> {
     try {
-      const dirsJson = await database.getSetting('watch_directories');
-      console.log('Raw watch directories from database:', dirsJson);
-      
-      const dirs = dirsJson ? JSON.parse(dirsJson) : [];
-      console.log('Parsed directories:', dirs);
-      
-      // Convert old string format to new object format
-      const convertedDirs = dirs.map((dir: any) => {
-        if (typeof dir === 'string') {
-          return { path: dir, priority: 'medium' };
-        }
-        return dir;
-      });
-      
-      console.log('Converted directories:', convertedDirs);
-      return convertedDirs;
+      // Get all folder paths from the new category-based structure
+      return await database.getAllFolderPaths();
     } catch (error) {
       console.error('Error loading watch directories:', error);
       return [];
     }
   }
 
-  async setWatchDirectories(directories: any[]): Promise<boolean> {
+  async refreshWatchers(): Promise<boolean> {
     try {
-      console.log('Setting watch directories:', directories);
+      console.log('Refreshing watchers from database...');
       
       // Stop existing watchers
       this.stopAllWatchers();
 
-      // Save to database
-      const jsonString = JSON.stringify(directories);
-      console.log('Saving directories to database:', jsonString);
-      await database.setSetting('watch_directories', jsonString);
-      console.log('Directories saved to database successfully');
-
-      // Start new watchers
-      for (const dir of directories) {
-        const dirPath = typeof dir === 'string' ? dir : dir.path;
+      // Get current folder paths and start watchers
+      const directories = await this.getWatchDirectories();
+      for (const dirPath of directories) {
         console.log('Adding watch directory:', dirPath);
         await this.addWatchDirectory(dirPath);
       }
 
-      console.log('All directories set successfully');
+      console.log('All watchers refreshed successfully');
       return true;
     } catch (error) {
-      console.error('Error setting watch directories:', error);
+      console.error('Error refreshing watchers:', error);
       throw error;
     }
   }
@@ -171,8 +150,7 @@ class SyncManager {
       const allFiles: string[] = [];
 
       // Collect all supported files from all directories
-      for (const dir of watchDirs) {
-        const dirPath = typeof dir === 'string' ? dir : dir.path;
+      for (const dirPath of watchDirs) {
         if (!fs.existsSync(dirPath)) {
           console.warn(`Skipping non-existent directory: ${dirPath}`);
           continue;

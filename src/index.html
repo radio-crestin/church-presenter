@@ -55,15 +55,17 @@
         <!-- Settings Tab -->
         <div id="settings-content" class="tab-content">
           <div class="settings-section">
-            <h2>Sincronizare Directoare</h2>
-            <p>Configurează care directoare vor fi monitorizate pentru fișierele de prezentare:</p>
+            <h2>Categorii și Foldere</h2>
+            <p>Organizează folderele în categorii pentru o gestionare mai bună:</p>
 
-            <div class="directories-section">
-              <div id="directories-list">
-                <!-- Lista de directoare va fi încărcată aici -->
+            <div class="categories-section">
+              <div class="add-category">
+                <input type="text" id="category-name-input" placeholder="Nume categorie nouă..." />
+                <button id="add-category-btn" class="add-category-btn">➕ Adaugă categorie</button>
               </div>
-              <div class="add-directory">
-                <button id="add-directory-btn" class="add-folder-btn">📁 Adaugă folder</button>
+              
+              <div id="categories-list">
+                <!-- Lista de categorii va fi încărcată aici -->
               </div>
             </div>
 
