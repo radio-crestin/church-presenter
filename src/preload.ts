@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   performFullSync: () => ipcRenderer.invoke('perform-full-sync'),
   getSyncStatus: () => ipcRenderer.invoke('get-sync-status'),
   recoverDatabase: () => ipcRenderer.invoke('recover-database'),
+  selectFolder: () => ipcRenderer.invoke('select-folder'),
   onSyncProgress: (callback: (progress: any) => void) => {
     ipcRenderer.on('sync-progress', (event: IpcRendererEvent, progress: any) => callback(progress));
   },
@@ -35,6 +36,7 @@ declare global {
       performFullSync: () => Promise<{ total: number; processed: number }>;
       getSyncStatus: () => Promise<{ inProgress: boolean; watchedDirectories: string[]; isInitialized: boolean }>;
       recoverDatabase: () => Promise<boolean>;
+      selectFolder: () => Promise<{ canceled: boolean; filePaths: string[] }>;
       onSyncProgress: (callback: (progress: any) => void) => void;
       removeAllListeners: (channel: string) => void;
     };

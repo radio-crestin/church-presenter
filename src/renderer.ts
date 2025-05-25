@@ -11,6 +11,7 @@ interface ElectronAPI {
   performFullSync: () => Promise<{ total: number; processed: number }>;
   getSyncStatus: () => Promise<{ inProgress: boolean; watchedDirectories: string[]; isInitialized: boolean }>;
   recoverDatabase: () => Promise<boolean>;
+  selectFolder: () => Promise<{ canceled: boolean; filePaths: string[] }>;
   onSyncProgress: (callback: (progress: any) => void) => void;
   removeAllListeners: (channel: string) => void;
 }
@@ -32,11 +33,12 @@ let presentationsContent: HTMLDivElement;
 let settingsContent: HTMLDivElement;
 let searchInput: HTMLInputElement;
 let searchBtn: HTMLButtonElement;
+let searchContentCheckbox: HTMLInputElement;
 let sortSelect: HTMLSelectElement;
 let favoritesFilter: HTMLButtonElement;
 let presentationsList: HTMLDivElement;
+let searchLoading: HTMLDivElement;
 let directoriesList: HTMLDivElement;
-let newDirectoryInput: HTMLInputElement;
 let addDirectoryBtn: HTMLButtonElement;
 let syncBtn: HTMLButtonElement;
 let syncProgress: HTMLDivElement;
@@ -56,11 +58,12 @@ function initializeApp() {
     settingsContent = document.getElementById('settings-content') as HTMLDivElement;
     searchInput = document.getElementById('search-input') as HTMLInputElement;
     searchBtn = document.getElementById('search-btn') as HTMLButtonElement;
+    searchContentCheckbox = document.getElementById('search-content') as HTMLInputElement;
     sortSelect = document.getElementById('sort-select') as HTMLSelectElement;
     favoritesFilter = document.getElementById('favorites-filter') as HTMLButtonElement;
     presentationsList = document.getElementById('presentations-list') as HTMLDivElement;
+    searchLoading = document.getElementById('search-loading') as HTMLDivElement;
     directoriesList = document.getElementById('directories-list') as HTMLDivElement;
-    newDirectoryInput = document.getElementById('new-directory-input') as HTMLInputElement;
     addDirectoryBtn = document.getElementById('add-directory-btn') as HTMLButtonElement;
     syncBtn = document.getElementById('sync-btn') as HTMLButtonElement;
     syncProgress = document.getElementById('sync-progress') as HTMLDivElement;
@@ -93,7 +96,11 @@ function initializeApp() {
 
   // Search functionality
   if (searchInput) {
-    searchInput.addEventListener('input', debounce(handleSearch, 300));
+    searchInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        handleSearch();
+      }
+    });
   }
   if (searchBtn) {
     searchBtn.addEventListener('click', handleSearch);
@@ -195,34 +202,48 @@ function switchTab(tab: string) {
   }
 }
 
-function debounce(func: Function, wait: number) {
-  let timeout: NodeJS.Timeout;
-  return function executedFunction(...args: any[]) {
-    const later = () => {
-      clearTimeout(timeout);
-      func(...args);
-    };
-    clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
-  };
-}
 
 
 async function handleSearch() {
-  if (!searchInput) {
-    console.error('Search input not initialized');
+  if (!searchInput || !searchLoading || !presentationsList || !searchContentCheckbox) {
+    console.error('Search elements not initialized');
     return;
   }
 
   const query = searchInput.value.trim();
+  
   if (query) {
     try {
-      const results = await window.electronAPI.searchPresentations(query, { limit: 50 });
+      // Show loading indicator
+      searchLoading.classList.remove('hidden');
+      presentationsList.style.display = 'none';
+      
+      // Determine search options based on checkbox
+      const searchOptions = {
+        limit: 50,
+        includeFTS: searchContentCheckbox.checked,
+        includeFuzzy: searchContentCheckbox.checked
+      };
+      
+      const results = await window.electronAPI.searchPresentations(query, searchOptions);
+      
+      // Hide loading indicator and show results
+      searchLoading.classList.add('hidden');
+      presentationsList.style.display = 'flex';
+      
       displayPresentations(results);
     } catch (error) {
       console.error('Search error:', error);
+      
+      // Hide loading indicator on error
+      searchLoading.classList.add('hidden');
+      presentationsList.style.display = 'flex';
+      
+      // Show error message
+      presentationsList.innerHTML = '<div class="error">Eroare la căutarea prezentărilor</div>';
     }
   } else {
+    // For empty query, just load all presentations without loading indicator
     loadPresentations();
   }
 }
@@ -245,8 +266,13 @@ async function loadPresentations() {
   }
 
   try {
+    // Ensure presentations list uses flex layout
+    if (presentationsList) {
+      presentationsList.style.display = 'flex';
+    }
+    
     const orderBy = sortSelect.value;
-    const presentations = await window.electronAPI.getAllPresentations(orderBy, 100);
+    const presentations = await window.electronAPI.getAllPresentations(orderBy, 50);
     
     let filteredPresentations = presentations;
     if (showFavoritesOnly) {
@@ -258,6 +284,7 @@ async function loadPresentations() {
   } catch (error) {
     console.error('Error loading presentations:', error);
     if (presentationsList) {
+      presentationsList.style.display = 'flex';
       presentationsList.innerHTML = '<div class="error">Eroare la încărcarea prezentărilor</div>';
     }
   }
@@ -274,7 +301,7 @@ function displayPresentations(presentations: any[]) {
     return;
   }
 
-  const html = presentations.map(presentation => `
+  const html = presentations.slice(0, 50).map(presentation => `
     <div class="presentation-card" data-path="${escapeHtml(presentation.path)}" onclick="openPresentation('${escapeHtml(presentation.path)}')">
       <div class="presentation-header">
         <h3 class="presentation-title">${escapeHtml(presentation.title_snippet || presentation.title)}</h3>
@@ -290,9 +317,6 @@ function displayPresentations(presentations: any[]) {
       ` : ''}
       <div class="presentation-meta">
         <span class="view-count">👁️ ${presentation.view_count || 0}</span>
-      </div>
-      <div class="presentation-dates">
-        <span>Actualizat: ${formatDate(presentation.updated_at)}</span>
       </div>
     </div>
   `).join('');
@@ -349,24 +373,92 @@ function getPriorityText(priority: string): string {
 }
 
 async function addDirectory() {
-  const newDir = newDirectoryInput.value.trim();
-  if (newDir) {
-    try {
-      const currentDirs = await window.electronAPI.getWatchDirectories();
-      const dirExists = currentDirs.some((dir: any) => 
-        (typeof dir === 'string' ? dir : dir.path) === newDir
-      );
-      
-      if (!dirExists) {
-        const newDirObj = { path: newDir, priority: 'medium' };
-        const updatedDirs = [...currentDirs, newDirObj];
-        await window.electronAPI.setWatchDirectories(updatedDirs);
-        newDirectoryInput.value = '';
-        displayDirectories(updatedDirs);
-      }
-    } catch (error) {
-      console.error('Error adding directory:', error);
+  try {
+    console.log('Starting folder selection...');
+    
+    // Open folder selection dialog
+    const result = await window.electronAPI.selectFolder();
+    console.log('Folder selection result:', JSON.stringify(result, null, 2));
+    console.log('Result type:', typeof result);
+    console.log('Result keys:', Object.keys(result || {}));
+    console.log('Result canceled:', result?.canceled);
+    console.log('Result filePaths:', result?.filePaths);
+    console.log('FilePaths type:', typeof result?.filePaths);
+    console.log('FilePaths is array:', Array.isArray(result?.filePaths));
+    console.log('FilePaths length:', result?.filePaths?.length);
+    
+    // Check if user canceled the dialog
+    if (result?.canceled === true) {
+      console.log('User canceled folder selection');
+      return;
     }
+    
+    // Check if we have a valid result with filePaths
+    if (!result || !result.filePaths || !Array.isArray(result.filePaths)) {
+      console.log('Invalid result structure');
+      console.log('Expected: { canceled: boolean, filePaths: string[] }');
+      console.log('Received:', result);
+      alert('Eroare la selectarea folderului. Încearcă din nou.');
+      return;
+    }
+    
+    if (result.filePaths.length === 0) {
+      console.log('No folder selected - filePaths array is empty');
+      console.log('This might happen if:');
+      console.log('1. User clicked Cancel (but canceled flag is false)');
+      console.log('2. User closed dialog without selecting');
+      console.log('3. Dialog API issue on this platform');
+      // Don't show alert for empty selection as user might have just canceled
+      return;
+    }
+    
+    const selectedFolder = result.filePaths[0];
+    console.log('Selected folder path:', selectedFolder);
+    
+    if (!selectedFolder || typeof selectedFolder !== 'string') {
+      console.log('Invalid folder path:', selectedFolder);
+      alert('Calea folderului selectat nu este validă.');
+      return;
+    }
+    
+    const currentDirs = await window.electronAPI.getWatchDirectories();
+    console.log('Current directories:', currentDirs);
+    
+    // Check if folder already exists
+    const dirExists = currentDirs.some((dir: any) => 
+      (typeof dir === 'string' ? dir : dir.path) === selectedFolder
+    );
+    
+    if (dirExists) {
+      console.log('Folder already exists');
+      alert('Acest folder este deja monitorizat.');
+      return;
+    }
+    
+    // Add the new directory
+    const newDirObj = { path: selectedFolder, priority: 'medium' };
+    const updatedDirs = [...currentDirs, newDirObj];
+    console.log('Adding new directory:', newDirObj);
+    console.log('Updated directories:', updatedDirs);
+    
+    await window.electronAPI.setWatchDirectories(updatedDirs);
+    console.log('Directories updated successfully');
+    
+    // Update display
+    displayDirectories(updatedDirs);
+    console.log('Display updated');
+    
+    // Automatically trigger sync for the new folder
+    if (syncBtn && !syncBtn.disabled) {
+      console.log('Auto-triggering sync for new folder:', selectedFolder);
+      syncBtn.click();
+    } else {
+      console.log('Sync button not available or disabled');
+    }
+    
+  } catch (error) {
+    console.error('Error adding directory:', error);
+    alert(`Eroare la adăugarea folderului: ${error instanceof Error ? error.message : 'Verifică permisiunile și încearcă din nou.'}`);
   }
 }
 
@@ -403,25 +495,113 @@ async function addDirectory() {
 
 (window as any).toggleFavorite = async (path: string) => {
   try {
-    await window.electronAPI.toggleFavorite(path);
-    loadPresentations(); // Reload to update the UI
+    const newFavoriteStatus = await window.electronAPI.toggleFavorite(path);
+    
+    // Update the current presentations state
+    if (currentPresentations && currentPresentations.length > 0) {
+      const presentation = currentPresentations.find(p => p.path === path);
+      if (presentation) {
+        presentation.is_favorite = newFavoriteStatus === 1;
+        // Update the UI to reflect the new favorite status
+        updateFavoriteButton(path, presentation.is_favorite);
+      }
+    }
+    
+    // If we're showing only favorites and this presentation is no longer a favorite, remove it
+    if (showFavoritesOnly && newFavoriteStatus === 0) {
+      const card = document.querySelector(`[data-path="${path}"]`);
+      if (card) {
+        card.remove();
+      }
+      // Update currentPresentations to remove the unfavorited item
+      currentPresentations = currentPresentations.filter(p => p.path !== path);
+    }
   } catch (error) {
     console.error('Error toggling favorite:', error);
   }
 };
 
+// Helper function to update favorite button state
+function updateFavoriteButton(path: string, isFavorite: boolean) {
+  const cards = document.querySelectorAll('.presentation-card');
+  cards.forEach(card => {
+    if (card.getAttribute('data-path') === path) {
+      const favoriteBtn = card.querySelector('.favorite-btn');
+      if (favoriteBtn) {
+        favoriteBtn.classList.toggle('active', isFavorite);
+        favoriteBtn.textContent = isFavorite ? '★' : '☆';
+      }
+    }
+  });
+}
+
 (window as any).openPresentation = async (path: string) => {
   try {
-    await window.electronAPI.openPresentation(path);
-    // Reload presentations to reflect updated view count
-    if (currentTab === 'presentations') {
-      loadPresentations();
+    // Find the presentation card and add opening state
+    const cards = document.querySelectorAll('.presentation-card');
+    let targetCard: Element | null = null;
+    
+    cards.forEach(card => {
+      if (card.getAttribute('data-path') === path) {
+        targetCard = card;
+        card.classList.add('opening');
+      }
+    });
+    
+    // Immediately update view count in UI before API call
+    if (currentPresentations && currentPresentations.length > 0) {
+      const presentation = currentPresentations.find(p => p.path === path);
+      if (presentation) {
+        presentation.view_count = (presentation.view_count || 0) + 1;
+        // Update the display to show new view count immediately
+        updatePresentationViewCount(path, presentation.view_count);
+      }
     }
+    
+    await window.electronAPI.openPresentation(path);
+    
+    // Remove opening state after a short delay
+    setTimeout(() => {
+      if (targetCard) {
+        targetCard.classList.remove('opening');
+      }
+    }, 300);
+    
   } catch (error) {
+    // Remove opening state on error and revert view count
+    const cards = document.querySelectorAll('.presentation-card');
+    cards.forEach(card => {
+      if (card.getAttribute('data-path') === path) {
+        card.classList.remove('opening');
+      }
+    });
+    
+    // Revert view count on error
+    if (currentPresentations && currentPresentations.length > 0) {
+      const presentation = currentPresentations.find(p => p.path === path);
+      if (presentation) {
+        presentation.view_count = Math.max((presentation.view_count || 1) - 1, 0);
+        updatePresentationViewCount(path, presentation.view_count);
+      }
+    }
+    
     console.error('Error opening presentation:', error);
     alert('Nu s-a putut deschide prezentarea. Verifică dacă fișierul există și dacă ai software-ul necesar instalat.');
   }
 };
+
+// Helper function to update view count in the display
+function updatePresentationViewCount(path: string, newViewCount: number) {
+  const cards = document.querySelectorAll('.presentation-card');
+  cards.forEach(card => {
+    if (card.getAttribute('data-path') === path) {
+      const viewCountElement = card.querySelector('.view-count');
+      if (viewCountElement) {
+        viewCountElement.textContent = `👁️ ${newViewCount}`;
+      }
+    }
+  });
+}
 
 
 function updateSyncProgress(progress: any) {

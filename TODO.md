@@ -1,0 +1,4 @@
+- rezolva problema cu adaugarea de foldere
+- vezi daca se poate imbunatati viteza de cautare/calitatea (eventual folosind BM25)
+- deasemenea, ai putea cauta intai in cantarile PDC, apoi in cantarile obisnuite si apoi pe resurse crestine
+- 

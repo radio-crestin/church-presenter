@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, IpcMainInvokeEvent, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, IpcMainInvokeEvent, shell, dialog } from 'electron';
 import path from 'path';
 import database from './database';
 import syncManager from './sync-manager';
@@ -81,10 +81,10 @@ ipcMain.handle('open-presentation', async (event: IpcMainInvokeEvent, presentati
   try {
     // Update view count first
     await database.updateViewCount(presentationPath);
-    
+
     // Open the presentation with the default application
     await shell.openPath(presentationPath);
-    
+
     return { success: true };
   } catch (error) {
     console.error('Error opening presentation:', error);
@@ -130,6 +130,28 @@ ipcMain.handle('recover-database', async () => {
     return await database.recoverDatabase();
   } catch (error) {
     console.error('Error recovering database:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('select-folder', async () => {
+  try {
+    console.log('Opening folder selection dialog...');
+    const result = await dialog.showOpenDialog({
+      properties: ['openFile', 'openDirectory'],
+      title: 'Selectează folder pentru prezentări',
+      buttonLabel: 'Selectează',
+      message: 'Alege folderul care conține prezentările'
+    });
+
+    console.log('Dialog result:', JSON.stringify(result, null, 2));
+    console.log('Canceled:', result.canceled);
+    console.log('File paths:', result.filePaths);
+    console.log('File paths length:', result.filePaths?.length);
+
+    return result;
+  } catch (error) {
+    console.error('Error selecting folder:', error);
     throw error;
   }
 });

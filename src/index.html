@@ -25,6 +25,12 @@
               <input type="text" id="search-input" placeholder="Caută prezentări..." />
               <button id="search-btn">🔍</button>
             </div>
+            <div class="search-options-row">
+              <label class="search-option">
+                <input type="checkbox" id="search-content">
+                Caută în conținut
+              </label>
+            </div>
             <div class="filter-options">
               <select id="sort-select">
                 <option value="view_count DESC">Cele mai vizualizate</option>
@@ -34,6 +40,11 @@
               </select>
               <button id="favorites-filter" class="filter-btn">⭐ Doar favorite</button>
             </div>
+          </div>
+
+          <div id="search-loading" class="search-loading hidden">
+            <div class="loading-spinner"></div>
+            <span>Se caută prezentări...</span>
           </div>
 
           <div class="presentations-grid" id="presentations-list">
@@ -46,14 +57,13 @@
           <div class="settings-section">
             <h2>Sincronizare Directoare</h2>
             <p>Configurează care directoare vor fi monitorizate pentru fișierele de prezentare:</p>
-            
+
             <div class="directories-section">
               <div id="directories-list">
                 <!-- Lista de directoare va fi încărcată aici -->
               </div>
               <div class="add-directory">
-                <input type="text" id="new-directory-input" placeholder="Introdu calea directorului..." />
-                <button id="add-directory-btn">Adaugă folder</button>
+                <button id="add-directory-btn" class="add-folder-btn">📁 Adaugă folder</button>
               </div>
             </div>
 
@@ -71,8 +81,8 @@
 
             <div class="database-section">
               <h3>Baza de Date</h3>
-              <p>Dacă întâmpinați probleme cu baza de date, puteți încerca să o reparați:</p>
-              <button id="recover-db-btn" class="recover-button">🔧 Repară Baza de Date</button>
+              <p>Atentie! Toate datele vor fi sterse din baza de date.</p>
+              <button id="recover-db-btn" class="recover-button">🔧 Recreaza baza de date</button>
               <div id="recovery-status" class="recovery-status"></div>
             </div>
           </div>

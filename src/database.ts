@@ -103,7 +103,7 @@ function calculateWordScore(searchTerms: string[], text: string, normalized: boo
 
 
 // Helper function to calculate comprehensive search score
-function calculateSearchScore(searchTerms: string[], presentation: any): number {
+function calculateSearchScore(searchTerms: string[], presentation: any, includeContent: boolean = true): number {
   let totalScore = 0;
   
   // Title scoring (highest weight)
@@ -111,10 +111,12 @@ function calculateSearchScore(searchTerms: string[], presentation: any): number 
   const titleNormScore = calculateWordScore(searchTerms, presentation.title_normalized || '', true);
   totalScore += Math.max(titleScore, titleNormScore) * 3;
   
-  // Content scoring (medium weight)
-  const contentScore = calculateWordScore(searchTerms, presentation.content || '');
-  const contentNormScore = calculateWordScore(searchTerms, presentation.content_normalized || '', true);
-  totalScore += Math.max(contentScore, contentNormScore) * 1;
+  // Content scoring (medium weight) - only if includeContent is true
+  if (includeContent) {
+    const contentScore = calculateWordScore(searchTerms, presentation.content || '');
+    const contentNormScore = calculateWordScore(searchTerms, presentation.content_normalized || '', true);
+    totalScore += Math.max(contentScore, contentNormScore) * 1;
+  }
   
   // Popularity bonus (view count and favorites)
   const viewBonus = Math.min((presentation.view_count || 0) * 2, 50);
@@ -167,6 +169,8 @@ export interface SearchOptions {
 class DatabaseManager {
   private db: sqlite3.Database | null = null;
   private isInitialized = false;
+  private operationQueue: Array<() => Promise<void>> = [];
+  private processing = false;
 
   private migrations: Migration[] = [
     {
@@ -339,8 +343,11 @@ class DatabaseManager {
       let dbCorrupted = false;
 
       try {
-        // Create SQLite database
+        // Create SQLite database with optimizations for concurrent access
         this.db = new sqlite3.Database(dbPath);
+
+        // Configure SQLite for better concurrent performance
+        await this.configureSQLiteOptimizations();
 
         // Test if database is accessible
         await this.testDatabaseIntegrity();
@@ -368,6 +375,33 @@ class DatabaseManager {
       console.error('Failed to initialize database:', error);
       throw error;
     }
+  }
+
+  private async configureSQLiteOptimizations(): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const optimizations = [
+      'PRAGMA journal_mode = WAL',         // Enable WAL mode for better concurrency
+      'PRAGMA synchronous = NORMAL',       // Balance between safety and performance
+      'PRAGMA cache_size = 262144',        // Increase cache size to 1GB (262144 pages * 4KB)
+      'PRAGMA temp_store = memory',        // Store temp tables in memory
+      'PRAGMA mmap_size = 1073741824',     // Enable memory mapping (1GB)
+      'PRAGMA busy_timeout = 30000',       // 30 second timeout for busy database
+      'PRAGMA optimize'                    // Optimize query planner
+    ];
+
+    for (const pragma of optimizations) {
+      await new Promise<void>((resolve, reject) => {
+        this.db!.run(pragma, (err) => {
+          if (err) {
+            console.warn(`Failed to apply optimization "${pragma}":`, err.message);
+          }
+          resolve(); // Continue even if some optimizations fail
+        });
+      });
+    }
+
+    console.log('SQLite optimizations applied');
   }
 
   private async testDatabaseIntegrity(): Promise<void> {
@@ -562,6 +596,134 @@ class DatabaseManager {
     return { id: safeFilePath, changes: 1 };
   }
 
+  private async queueOperation<T>(operation: () => Promise<T>): Promise<T> {
+    return new Promise((resolve, reject) => {
+      this.operationQueue.push(async () => {
+        try {
+          const result = await operation();
+          resolve(result);
+        } catch (error) {
+          reject(error);
+        }
+      });
+      
+      this.processQueue();
+    });
+  }
+
+  private async processQueue(): Promise<void> {
+    if (this.processing || this.operationQueue.length === 0) return;
+    
+    this.processing = true;
+    
+    try {
+      while (this.operationQueue.length > 0) {
+        const operation = this.operationQueue.shift();
+        if (operation) {
+          await operation();
+        }
+      }
+    } finally {
+      this.processing = false;
+    }
+  }
+
+  async insertOrUpdatePresentationBatch(presentations: PresentationData[]): Promise<number> {
+    return this.queueOperation(async () => {
+      if (!this.db) throw new Error('Database not initialized');
+      if (presentations.length === 0) return 0;
+
+      try {
+        const now = new Date().toISOString();
+        
+        // Begin transaction for batch insert
+        await new Promise<void>((resolve, reject) => {
+          this.db!.run('BEGIN TRANSACTION', (err) => {
+            if (err) reject(err);
+            else resolve();
+          });
+        });
+
+        const stmt = this.db.prepare(`
+          INSERT INTO presentations (path, title, content, file_size, created_at, updated_at, title_normalized, content_normalized)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT (path) DO UPDATE SET 
+            title = EXCLUDED.title,
+            content = EXCLUDED.content,
+            file_size = EXCLUDED.file_size,
+            updated_at = EXCLUDED.updated_at,
+            title_normalized = EXCLUDED.title_normalized,
+            content_normalized = EXCLUDED.content_normalized
+        `);
+
+        let processed = 0;
+
+        for (const presentationData of presentations) {
+          const { title, content, path: filePath, fileSize } = presentationData;
+          
+          // Validate required parameters
+          const safeTitle = title || 'Untitled Presentation';
+          const safeContent = content || '';
+          const safeFilePath = filePath || '';
+          const safeFileSize = fileSize || 0;
+
+          if (!safeFilePath) {
+            console.warn('Skipping presentation with empty path');
+            continue;
+          }
+
+          // Create normalized versions for diacritic-free search
+          const titleNormalized = removeDiacritics(safeTitle);
+          const contentNormalized = removeDiacritics(safeContent);
+
+          await new Promise<void>((resolve, reject) => {
+            stmt.run(
+              [safeFilePath, safeTitle, safeContent, safeFileSize, now, now, titleNormalized, contentNormalized],
+              (err) => {
+                if (err) reject(err);
+                else {
+                  processed++;
+                  resolve();
+                }
+              }
+            );
+          });
+        }
+
+        stmt.finalize();
+
+        // Commit transaction
+        await new Promise<void>((resolve, reject) => {
+          this.db!.run('COMMIT', (err) => {
+            if (err) reject(err);
+            else resolve();
+          });
+        });
+
+        console.log(`Batch inserted/updated ${processed} presentations`);
+        return processed;
+
+      } catch (error: any) {
+        // Rollback on error
+        try {
+          await new Promise<void>((resolve, reject) => {
+            this.db!.run('ROLLBACK', (err) => {
+              resolve(); // Don't reject on rollback errors
+            });
+          });
+        } catch (rollbackError) {
+          console.error('Error during rollback:', rollbackError);
+        }
+
+        if (error.message && error.message.includes('SQLITE_CORRUPT')) {
+          console.error('Database corruption detected during batch insert operation');
+          throw new Error('Database corruption detected. Please restart the application to recover.');
+        }
+        throw error;
+      }
+    });
+  }
+
   async recoverDatabase(): Promise<boolean> {
     try {
       const userDataPath = app.getPath('userData');
@@ -607,7 +769,7 @@ class DatabaseManager {
     const scoredResults: SearchResult[] = [];
 
     for (const presentation of allPresentations) {
-      const score = calculateSearchScore(searchTerms, presentation);
+      const score = calculateSearchScore(searchTerms, presentation, includeFTS);
       
       // Only include results with meaningful scores
       if (score > 10) {
