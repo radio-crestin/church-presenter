@@ -1,0 +1,63 @@
+name: Build & Release
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+        
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
+          
+      - name: Setup Python (for conversion scripts)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+          
+      - name: Install Python dependencies
+        run: |
+          cd scripts/convert-to-pptx
+          pip install -r requirements.txt
+          
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+        
+      - name: Build TypeScript
+        run: yarn build
+        
+      - name: Package application
+        run: yarn make
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: List build outputs (debug)
+        run: |
+          echo "Build outputs:"
+          find ./out -type f -name "*" | head -20 || echo "No out directory found"
+          
+      - name: Upload artifacts to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ./out/make/**/*.zip
+            ./out/make/**/*.deb
+            ./out/make/**/*.rpm
+            ./out/make/**/*.exe
+            ./out/make/**/*.dmg
+            ./out/make/**/*.AppImage
+          tag_name: ${{ github.event.release.tag_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

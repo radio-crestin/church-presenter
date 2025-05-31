@@ -27,7 +27,7 @@
             </div>
             <div class="search-options-row">
               <label class="search-option">
-                <input type="checkbox" id="search-content">
+                <input type="checkbox" id="search-content" checked>
                 Caută în conținut
               </label>
             </div>
@@ -79,6 +79,18 @@
                 <div class="progress-text" id="progress-text">Se pregătește sincronizarea...</div>
               </div>
               <div id="sync-status" class="sync-status"></div>
+            </div>
+
+            <div class="search-settings-section">
+              <h3>Setări Căutare</h3>
+              <div class="setting-item">
+                <label class="setting-label">
+                  <input type="checkbox" id="search-while-typing" checked>
+                  <span class="checkmark"></span>
+                  Caută în timpul scrierii
+                </label>
+                <p class="setting-description">Activează căutarea automată cu o întârziere de 300ms pentru a nu suprasolicita baza de date.</p>
+              </div>
             </div>
 
             <div class="database-section">

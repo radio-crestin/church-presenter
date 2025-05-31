@@ -9,128 +9,144 @@ interface Migration {
   up: (db: sqlite3.Database) => Promise<void>;
 }
 
-// Helper function to remove diacritics
-function removeDiacritics(text: string): string {
-  return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+// Enhanced normalization function for search with religious name variations
+function normalizeForSearch(text: string): string {
+  if (!text) return '';
+  
+  let normalized = text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
+    .toLowerCase()
+    .trim();
+  
+  // Handle common religious name variations and transliterations
+  normalized = applyReligiousNameNormalization(normalized);
+  
+  return normalized;
 }
 
-// Helper function for fuzzy matching (Levenshtein distance)
-function levenshteinDistance(str1: string, str2: string): number {
-  const matrix = [];
+// Apply religious name normalization rules
+function applyReligiousNameNormalization(text: string): string {
+  // Define normalization rules for religious terms
+  const nameVariations: { [key: string]: string } = {
+    // Christ variations
+    'christos': 'hristos',
+    'cristos': 'hristos',
+    'khristos': 'hristos',
+    'xristos': 'hristos',
+    'christ': 'hrist',
+    'crist': 'hrist',
+    'khrist': 'hrist',
+    'xrist': 'hrist',
+    
+    // Common Romanian/Greek religious terms
+    'iisus': 'isus',
+    'iesus': 'isus',
+    'jesus': 'isus',
+    'theotokos': 'teotokos',
+    'fecioara': 'fecioara',
+    'maica': 'maica',
+    'maria': 'maria',
+    'marie': 'maria',
+    
+    // Saint variations
+    'sfantul': 'sfant',
+    'sfanta': 'sfant',
+    'sfintul': 'sfant',
+    'sfinta': 'sfant',
+    'saint': 'sfant',
+    'sanctus': 'sfant',
+    'sancta': 'sfant',
+    
+    // Common apostle/saint name variations
+    'pavel': 'paul',
+    'petru': 'petru',
+    'peter': 'petru',
+    'petre': 'petru',
+    'ioan': 'ioan',
+    'john': 'ioan',
+    'iohannes': 'ioan',
+    'gheorghe': 'gheorghe',
+    'george': 'gheorghe',
+    'georgios': 'gheorghe',
+    
+    // Church/religious building terms
+    'biserica': 'biserica',
+    'church': 'biserica',
+    'basilica': 'basilica',
+    'catedrala': 'catedrala',
+    'cathedral': 'catedrala',
+    'manastire': 'manastire',
+    'monastery': 'manastire',
+    'monasterio': 'manastire',
+    
+    // Religious feast/celebration terms
+    'craciun': 'craciun',
+    'christmas': 'craciun',
+    'paste': 'paste',
+    'easter': 'paste',
+    'rusalii': 'rusalii',
+    'pentecost': 'rusalii',
+    'botez': 'botez',
+    'baptism': 'botez',
+    'botezul': 'botez',
+    
+    // Common religious concepts
+    'invierea': 'inviere',
+    'resurrection': 'inviere',
+    'nasterea': 'nastere',
+    'nativity': 'nastere',
+    'buna': 'buna',
+    'vestire': 'vestire',
+    'annunciation': 'vestire',
+    
+    // Handle 'ch' vs 'h' vs 'c' at word boundaries
+    'chr': 'hr',
+    'ch': 'h',
+  };
   
-  for (let i = 0; i <= str2.length; i++) {
-    matrix[i] = [i];
-  }
+  // Apply word-level replacements
+  let result = text;
   
-  for (let j = 0; j <= str1.length; j++) {
-    matrix[0][j] = j;
-  }
-  
-  for (let i = 1; i <= str2.length; i++) {
-    for (let j = 1; j <= str1.length; j++) {
-      if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
-        matrix[i][j] = matrix[i - 1][j - 1];
-      } else {
-        matrix[i][j] = Math.min(
-          matrix[i - 1][j - 1] + 1, // substitution
-          matrix[i][j - 1] + 1,     // insertion
-          matrix[i - 1][j] + 1      // deletion
-        );
+  // Split into words and process each
+  const words = result.split(/\s+/);
+  const processedWords = words.map(word => {
+    // Remove punctuation for matching
+    const cleanWord = word.replace(/[^a-z0-9]/gi, '');
+    
+    // Check for exact matches first
+    if (nameVariations[cleanWord]) {
+      return word.replace(cleanWord, nameVariations[cleanWord]);
+    }
+    
+    // Check for partial matches at word start
+    for (const [variant, normalized] of Object.entries(nameVariations)) {
+      if (cleanWord.startsWith(variant)) {
+        return word.replace(variant, normalized);
       }
     }
-  }
-  
-  return matrix[str2.length][str1.length];
-}
-
-// Helper function to calculate similarity score (0-1)
-function calculateSimilarity(str1: string, str2: string): number {
-  const maxLength = Math.max(str1.length, str2.length);
-  if (maxLength === 0) return 1;
-  
-  const distance = levenshteinDistance(str1.toLowerCase(), str2.toLowerCase());
-  return (maxLength - distance) / maxLength;
-}
-
-// Helper function to calculate word-order independent scoring
-function calculateWordScore(searchTerms: string[], text: string, normalized: boolean = false): number {
-  if (!text || searchTerms.length === 0) return 0;
-  
-  const textToCheck = normalized ? removeDiacritics(text.toLowerCase()) : text.toLowerCase();
-  const words = textToCheck.split(/\s+/);
-  
-  let score = 0;
-  let matchedTerms = 0;
-  
-  for (const term of searchTerms) {
-    const termToCheck = normalized ? removeDiacritics(term.toLowerCase()) : term.toLowerCase();
     
-    // Exact word match (highest score)
-    if (words.some(word => word === termToCheck)) {
-      score += 100;
-      matchedTerms++;
-      continue;
-    }
-    
-    // Substring match in any word
-    if (words.some(word => word.includes(termToCheck))) {
-      score += 75;
-      matchedTerms++;
-      continue;
-    }
-    
-    // Fuzzy match for longer terms
-    if (termToCheck.length >= 3) {
-      for (const word of words) {
-        if (word.length >= 3) {
-          const similarity = calculateSimilarity(termToCheck, word);
-          if (similarity >= 0.7) {
-            score += similarity * 50;
-            matchedTerms++;
-            break;
-          }
-        }
-      }
-    }
-  }
+    return word;
+  });
   
-  // Bonus for matching more terms
-  const termCoverage = matchedTerms / searchTerms.length;
-  score *= (0.5 + termCoverage * 0.5);
+  result = processedWords.join(' ');
   
-  return score;
-}
-
-
-// Helper function to calculate comprehensive search score
-function calculateSearchScore(searchTerms: string[], presentation: any, includeContent: boolean = true): number {
-  let totalScore = 0;
+  // Apply character-level transformations for remaining cases
+  result = result
+    // Handle Chr -> Hr at start of words
+    .replace(/\bchr/g, 'hr')
+    .replace(/\bChr/g, 'hr')
+    // Handle common transliteration patterns
+    .replace(/kh/g, 'h')    // Greek χ transliteration
+    .replace(/th/g, 't')    // Greek θ transliteration (simplified)
+    .replace(/ph/g, 'f')    // Greek φ transliteration
+    .replace(/rh/g, 'r')    // Greek ρ transliteration
+    // Handle Romanian ș/ț without diacritics
+    .replace(/sh/g, 's')
+    .replace(/ts/g, 't')
+    .replace(/tz/g, 't');
   
-  // Title scoring (highest weight)
-  const titleScore = calculateWordScore(searchTerms, presentation.title || '');
-  const titleNormScore = calculateWordScore(searchTerms, presentation.title_normalized || '', true);
-  totalScore += Math.max(titleScore, titleNormScore) * 3;
-  
-  // Content scoring (medium weight) - only if includeContent is true
-  if (includeContent) {
-    const contentScore = calculateWordScore(searchTerms, presentation.content || '');
-    const contentNormScore = calculateWordScore(searchTerms, presentation.content_normalized || '', true);
-    totalScore += Math.max(contentScore, contentNormScore) * 1;
-  }
-  
-  // Popularity bonus (view count and favorites)
-  const viewBonus = Math.min((presentation.view_count || 0) * 2, 50);
-  const favoriteBonus = presentation.is_favorite ? 25 : 0;
-  totalScore += viewBonus + favoriteBonus;
-  
-  // Recency bonus
-  if (presentation.updated_at) {
-    const daysSinceUpdate = (Date.now() - new Date(presentation.updated_at).getTime()) / (1000 * 60 * 60 * 24);
-    const recencyBonus = Math.max(0, 20 - daysSinceUpdate);
-    totalScore += recencyBonus;
-  }
-  
-  return totalScore;
+  return result;
 }
 
 export interface PresentationData {
@@ -156,13 +172,14 @@ export interface SearchResult extends Presentation {
   title_snippet: string;
   content_snippet: string;
   relevance_score: number;
-  match_type: 'exact' | 'fuzzy' | 'fts' | 'smart';
+  match_type: 'exact' | 'fts';
+  search_query: string;
+  search_terms: string[];
 }
 
 export interface SearchOptions {
-  fuzzyThreshold?: number; // 0-1, minimum similarity for fuzzy matches
-  includeFuzzy?: boolean;
-  includeFTS?: boolean;
+  searchInContent?: boolean; // Whether to search in content or just titles
+  useBM25?: boolean; // Whether to use BM25/FTS5 search on normalized fields
   limit?: number;
 }
 
@@ -194,7 +211,7 @@ class DatabaseManager {
             `, (err) => {
               if (err) return reject(err);
             });
-            
+
             db.run(`
               CREATE TABLE IF NOT EXISTS settings (
                 key TEXT PRIMARY KEY,
@@ -231,7 +248,7 @@ class DatabaseManager {
             `, (err) => {
               if (err) return reject(err);
             });
-            
+
             // Copy data from old table if it exists
             db.run(`
               INSERT INTO presentations_new (path, title, content, view_count, is_favorite, file_size, created_at, updated_at, last_accessed)
@@ -242,12 +259,12 @@ class DatabaseManager {
                 console.log('No existing data to migrate:', err);
               }
             });
-            
+
             // Drop old table and rename new one
             db.run('DROP TABLE IF EXISTS presentations', (err) => {
               if (err) return reject(err);
             });
-            
+
             db.run('ALTER TABLE presentations_new RENAME TO presentations', (err) => {
               if (err) return reject(err);
               resolve(undefined);
@@ -269,29 +286,30 @@ class DatabaseManager {
             `, (err) => {
               if (err && !err.message.includes('duplicate column')) return reject(err);
             });
-            
+
             db.run(`
               ALTER TABLE presentations 
               ADD COLUMN content_normalized TEXT
             `, (err) => {
               if (err && !err.message.includes('duplicate column')) return reject(err);
             });
-            
-            // Create FTS virtual table
+
+            // Create FTS virtual table with alphanumeric tokenization
             db.run(`
               CREATE VIRTUAL TABLE IF NOT EXISTS presentations_fts USING fts5(
                 path UNINDEXED,
                 title,
                 content,
-                title_normalized,
-                content_normalized,
+                title_alphanumeric,
+                content_alphanumeric,
+                tokenize='porter ascii',
                 content='presentations',
                 content_rowid='id'
               )
             `, (err) => {
               if (err) return reject(err);
             });
-            
+
             // Create triggers to keep FTS in sync
             db.run(`
               CREATE TRIGGER IF NOT EXISTS presentations_fts_insert AFTER INSERT ON presentations BEGIN
@@ -301,7 +319,7 @@ class DatabaseManager {
             `, (err) => {
               if (err) return reject(err);
             });
-            
+
             db.run(`
               CREATE TRIGGER IF NOT EXISTS presentations_fts_delete AFTER DELETE ON presentations BEGIN
                 INSERT INTO presentations_fts(presentations_fts, rowid, path, title, content, title_normalized, content_normalized)
@@ -310,7 +328,7 @@ class DatabaseManager {
             `, (err) => {
               if (err) return reject(err);
             });
-            
+
             db.run(`
               CREATE TRIGGER IF NOT EXISTS presentations_fts_update AFTER UPDATE ON presentations BEGIN
                 INSERT INTO presentations_fts(presentations_fts, rowid, path, title, content, title_normalized, content_normalized)
@@ -328,6 +346,93 @@ class DatabaseManager {
     },
     {
       version: 4,
+      description: 'Add alphanumeric search columns and rebuild FTS5 for optimized search',
+      up: async (db: sqlite3.Database) => {
+        return new Promise((resolve, reject) => {
+          db.serialize(() => {
+            // Add alphanumeric columns
+            db.run(`
+              ALTER TABLE presentations 
+              ADD COLUMN title_alphanumeric TEXT
+            `, (err) => {
+              if (err && !err.message.includes('duplicate column')) return reject(err);
+            });
+
+            db.run(`
+              ALTER TABLE presentations 
+              ADD COLUMN content_alphanumeric TEXT
+            `, (err) => {
+              if (err && !err.message.includes('duplicate column')) return reject(err);
+            });
+
+            // Drop existing FTS table and recreate with new structure
+            db.run('DROP TABLE IF EXISTS presentations_fts', (err) => {
+              if (err) return reject(err);
+            });
+
+            // Drop existing triggers
+            db.run('DROP TRIGGER IF EXISTS presentations_fts_insert', (err) => {
+              if (err) return reject(err);
+            });
+            db.run('DROP TRIGGER IF EXISTS presentations_fts_delete', (err) => {
+              if (err) return reject(err);
+            });
+            db.run('DROP TRIGGER IF EXISTS presentations_fts_update', (err) => {
+              if (err) return reject(err);
+            });
+
+            // Create new FTS table with alphanumeric columns
+            db.run(`
+              CREATE VIRTUAL TABLE presentations_fts USING fts5(
+                path UNINDEXED,
+                title,
+                content,
+                title_alphanumeric,
+                content_alphanumeric,
+                tokenize='porter ascii',
+                content='presentations',
+                content_rowid='id'
+              )
+            `, (err) => {
+              if (err) return reject(err);
+            });
+
+            // Create new triggers
+            db.run(`
+              CREATE TRIGGER presentations_fts_insert AFTER INSERT ON presentations BEGIN
+                INSERT INTO presentations_fts(rowid, path, title, content, title_alphanumeric, content_alphanumeric)
+                VALUES (new.id, new.path, new.title, new.content, new.title_alphanumeric, new.content_alphanumeric);
+              END
+            `, (err) => {
+              if (err) return reject(err);
+            });
+
+            db.run(`
+              CREATE TRIGGER presentations_fts_delete AFTER DELETE ON presentations BEGIN
+                INSERT INTO presentations_fts(presentations_fts, rowid, path, title, content, title_alphanumeric, content_alphanumeric)
+                VALUES ('delete', old.id, old.path, old.title, old.content, old.title_alphanumeric, old.content_alphanumeric);
+              END
+            `, (err) => {
+              if (err) return reject(err);
+            });
+
+            db.run(`
+              CREATE TRIGGER presentations_fts_update AFTER UPDATE ON presentations BEGIN
+                INSERT INTO presentations_fts(presentations_fts, rowid, path, title, content, title_alphanumeric, content_alphanumeric)
+                VALUES ('delete', old.id, old.path, old.title, old.content, old.title_alphanumeric, old.content_alphanumeric);
+                INSERT INTO presentations_fts(rowid, path, title, content, title_alphanumeric, content_alphanumeric)
+                VALUES (new.id, new.path, new.title, new.content, new.title_alphanumeric, new.content_alphanumeric);
+              END
+            `, (err) => {
+              if (err) return reject(err);
+              resolve(undefined);
+            });
+          });
+        });
+      }
+    },
+    {
+      version: 5,
       description: 'Add categories and folders tables for organized directory management',
       up: async (db: sqlite3.Database) => {
         return new Promise((resolve, reject) => {
@@ -344,7 +449,7 @@ class DatabaseManager {
             `, (err) => {
               if (err) return reject(err);
             });
-            
+
             // Create folders table
             db.run(`
               CREATE TABLE IF NOT EXISTS folders (
@@ -359,20 +464,20 @@ class DatabaseManager {
             `, (err) => {
               if (err) return reject(err);
             });
-            
+
             // Create indexes for better performance
             db.run(`
               CREATE INDEX IF NOT EXISTS idx_categories_order ON categories(order_index)
             `, (err) => {
               if (err) return reject(err);
             });
-            
+
             db.run(`
               CREATE INDEX IF NOT EXISTS idx_folders_category ON folders(category_id)
             `, (err) => {
               if (err) return reject(err);
             });
-            
+
             db.run(`
               CREATE INDEX IF NOT EXISTS idx_folders_path ON folders(path)
             `, (err) => {
@@ -438,13 +543,29 @@ class DatabaseManager {
     if (!this.db) throw new Error('Database not initialized');
 
     const optimizations = [
-      'PRAGMA journal_mode = WAL',         // Enable WAL mode for better concurrency
-      'PRAGMA synchronous = NORMAL',       // Balance between safety and performance
-      'PRAGMA cache_size = 262144',        // Increase cache size to 1GB (262144 pages * 4KB)
-      'PRAGMA temp_store = memory',        // Store temp tables in memory
-      'PRAGMA mmap_size = 1073741824',     // Enable memory mapping (1GB)
-      'PRAGMA busy_timeout = 30000',       // 30 second timeout for busy database
-      'PRAGMA optimize'                    // Optimize query planner
+      // Performance and concurrency optimizations
+      'PRAGMA journal_mode = WAL',           // Enable WAL mode for better concurrency
+      'PRAGMA synchronous = NORMAL',         // Balance between safety and performance
+      'PRAGMA wal_autocheckpoint = 1000',    // Auto-checkpoint every 1000 pages
+      'PRAGMA journal_size_limit = 67108864', // Limit WAL file to 64MB
+
+      // Memory optimizations - much larger cache for indexes and data
+      'PRAGMA cache_size = -524288',         // Negative value = 512MB in KB (keeps indexes in RAM)
+      'PRAGMA temp_store = memory',          // Store temp tables in memory
+      'PRAGMA mmap_size = 2147483648',       // Enable 2GB memory mapping
+
+      // Query and index optimizations
+      'PRAGMA automatic_index = ON',         // Enable automatic indexes for optimization
+      'PRAGMA optimize',                     // Optimize query planner and statistics
+      'PRAGMA analysis_limit = 1000',        // Limit analysis for faster ANALYZE
+
+      // Connection and timeout settings
+      'PRAGMA busy_timeout = 30000',         // 30 second timeout for busy database
+      'PRAGMA read_uncommitted = ON',        // Allow dirty reads for better performance
+
+      // FTS5 specific optimizations
+      'PRAGMA case_sensitive_like = OFF',    // Optimize LIKE operations
+      'PRAGMA threads = 4'                   // Use multiple threads for operations
     ];
 
     for (const pragma of optimizations) {
@@ -458,7 +579,17 @@ class DatabaseManager {
       });
     }
 
-    console.log('SQLite optimizations applied');
+    // Run ANALYZE to update statistics for better query planning
+    await new Promise<void>((resolve, reject) => {
+      this.db!.run('ANALYZE', (err) => {
+        if (err) {
+          console.warn('Failed to run ANALYZE:', err.message);
+        }
+        resolve();
+      });
+    });
+
+    console.log('SQLite performance optimizations applied (512MB cache, 2GB mmap)');
   }
 
   private async testDatabaseIntegrity(): Promise<void> {
@@ -477,7 +608,7 @@ class DatabaseManager {
 
   private async recoverFromCorruption(dbPath: string): Promise<void> {
     console.log('Attempting to recover from database corruption...');
-    
+
     try {
       // Close existing connection
       if (this.db) {
@@ -581,25 +712,57 @@ class DatabaseManager {
     if (!this.db) throw new Error('Database not initialized');
 
     const indexes = [
+      // Primary lookup indexes (most frequently used)
       'CREATE INDEX IF NOT EXISTS idx_presentations_path ON presentations(path)',
-      'CREATE INDEX IF NOT EXISTS idx_presentations_favorite ON presentations(is_favorite)',
-      'CREATE INDEX IF NOT EXISTS idx_presentations_title ON presentations(title)',
-      'CREATE INDEX IF NOT EXISTS idx_presentations_title_normalized ON presentations(title_normalized)',
-      'CREATE INDEX IF NOT EXISTS idx_presentations_content_normalized ON presentations(content_normalized)',
-      'CREATE INDEX IF NOT EXISTS idx_presentations_updated ON presentations(updated_at)',
-      'CREATE INDEX IF NOT EXISTS idx_presentations_view_count ON presentations(view_count)',
-      'CREATE INDEX IF NOT EXISTS idx_presentations_compound_search ON presentations(title, content, title_normalized, content_normalized)',
-      'CREATE INDEX IF NOT EXISTS idx_presentations_compound_stats ON presentations(view_count, is_favorite, updated_at)'
+      'CREATE INDEX IF NOT EXISTS idx_presentations_id_path ON presentations(id, path)',
+
+      // Search-optimized indexes (kept in memory cache)
+      'CREATE INDEX IF NOT EXISTS idx_presentations_title_search ON presentations(title COLLATE NOCASE)',
+      'CREATE INDEX IF NOT EXISTS idx_presentations_title_normalized_search ON presentations(title_normalized COLLATE NOCASE)',
+      'CREATE INDEX IF NOT EXISTS idx_presentations_title_alphanumeric ON presentations(title_alphanumeric)',
+      'CREATE INDEX IF NOT EXISTS idx_presentations_content_alphanumeric ON presentations(content_alphanumeric)',
+
+      // Content search indexes (partial indexes for performance)
+      'CREATE INDEX IF NOT EXISTS idx_presentations_content_search ON presentations(content) WHERE content IS NOT NULL',
+      'CREATE INDEX IF NOT EXISTS idx_presentations_content_normalized ON presentations(content_normalized) WHERE content_normalized IS NOT NULL',
+
+      // Filtering and sorting indexes
+      'CREATE INDEX IF NOT EXISTS idx_presentations_favorite_updated ON presentations(is_favorite DESC, updated_at DESC)',
+      'CREATE INDEX IF NOT EXISTS idx_presentations_view_count_desc ON presentations(view_count DESC, updated_at DESC)',
+      'CREATE INDEX IF NOT EXISTS idx_presentations_updated_desc ON presentations(updated_at DESC)',
+
+      // Compound indexes for common query patterns
+      'CREATE INDEX IF NOT EXISTS idx_presentations_search_combo ON presentations(title, title_normalized, is_favorite, view_count)',
+      'CREATE INDEX IF NOT EXISTS idx_presentations_stats_combo ON presentations(view_count DESC, is_favorite DESC, updated_at DESC)',
+
+      // Covering indexes for fast queries (includes all needed columns)
+      'CREATE INDEX IF NOT EXISTS idx_presentations_list_cover ON presentations(updated_at DESC, id, path, title, view_count, is_favorite)',
+      'CREATE INDEX IF NOT EXISTS idx_presentations_search_cover ON presentations(title, title_normalized, id, path, view_count, is_favorite, updated_at)',
+
+      // Category and folder indexes
+      'CREATE INDEX IF NOT EXISTS idx_categories_order ON categories(order_index ASC, name ASC)',
+      'CREATE INDEX IF NOT EXISTS idx_folders_category ON folders(category_id, id)',
+      'CREATE INDEX IF NOT EXISTS idx_folders_path ON folders(path)',
+
+      // Settings index
+      'CREATE INDEX IF NOT EXISTS idx_settings_key ON settings(key)'
     ];
 
+    let indexCount = 0;
     for (const indexSQL of indexes) {
       await new Promise<void>((resolve, reject) => {
         this.db!.run(indexSQL, (err) => {
-          if (err) reject(err);
-          else resolve();
+          if (err) {
+            console.warn(`Failed to create index: ${indexSQL}`, err.message);
+          } else {
+            indexCount++;
+          }
+          resolve(); // Continue even if some indexes fail
         });
       });
     }
+
+    console.log(`Created ${indexCount} optimized indexes for fast search and retrieval`);
   }
 
   async insertOrUpdatePresentation(presentationData: PresentationData): Promise<{ id: string; changes: number }> {
@@ -618,11 +781,11 @@ class DatabaseManager {
       throw new Error('File path is required');
     }
 
-    // Create normalized versions for diacritic-free search
-    const titleNormalized = removeDiacritics(safeTitle);
-    const contentNormalized = removeDiacritics(safeContent);
+    // Create normalized versions for better search
+    const titleNormalized = normalizeForSearch(safeTitle);
+    const contentNormalized = normalizeForSearch(safeContent);
 
-    // Use SQLite upsert syntax
+    // Use SQLite upsert syntax with normalized fields
     try {
       await new Promise<void>((resolve, reject) => {
         this.db!.run(
@@ -663,16 +826,16 @@ class DatabaseManager {
           reject(error);
         }
       });
-      
+
       this.processQueue();
     });
   }
 
   private async processQueue(): Promise<void> {
     if (this.processing || this.operationQueue.length === 0) return;
-    
+
     this.processing = true;
-    
+
     try {
       while (this.operationQueue.length > 0) {
         const operation = this.operationQueue.shift();
@@ -692,7 +855,7 @@ class DatabaseManager {
 
       try {
         const now = new Date().toISOString();
-        
+
         // Begin transaction for batch insert
         await new Promise<void>((resolve, reject) => {
           this.db!.run('BEGIN TRANSACTION', (err) => {
@@ -717,7 +880,7 @@ class DatabaseManager {
 
         for (const presentationData of presentations) {
           const { title, content, path: filePath, fileSize } = presentationData;
-          
+
           // Validate required parameters
           const safeTitle = title || 'Untitled Presentation';
           const safeContent = content || '';
@@ -729,9 +892,9 @@ class DatabaseManager {
             continue;
           }
 
-          // Create normalized versions for diacritic-free search
-          const titleNormalized = removeDiacritics(safeTitle);
-          const contentNormalized = removeDiacritics(safeContent);
+          // Create normalized versions for better search
+          const titleNormalized = normalizeForSearch(safeTitle);
+          const contentNormalized = normalizeForSearch(safeContent);
 
           await new Promise<void>((resolve, reject) => {
             stmt.run(
@@ -785,18 +948,18 @@ class DatabaseManager {
     try {
       const userDataPath = app.getPath('userData');
       const dbPath = path.join(userDataPath, 'presentations.db');
-      
+
       console.log('Manual database recovery initiated');
-      
+
       // Reset initialization state
       this.isInitialized = false;
-      
+
       // Run recovery
       await this.recoverFromCorruption(dbPath);
-      
+
       this.isInitialized = true;
       console.log('Manual database recovery completed');
-      
+
       return true;
     } catch (error) {
       console.error('Manual database recovery failed:', error);
@@ -807,186 +970,92 @@ class DatabaseManager {
   async searchPresentations(query: string, options: SearchOptions = {}): Promise<SearchResult[]> {
     if (!this.db) throw new Error('Database not initialized');
 
-    const {
-      fuzzyThreshold = 0.6,
-      includeFuzzy = true,
-      includeFTS = true,
-      limit = 50
-    } = options;
+    const { searchInContent = true, limit = 50 } = options;
+    const trimmedQuery = query.trim();
 
-    // Parse search query into terms for word-order independent search
-    const searchTerms = query.trim().toLowerCase().split(/\s+/).filter(term => term.length > 0);
-    
-    if (searchTerms.length === 0) {
+    if (trimmedQuery.length === 0) {
       return [];
     }
 
-    // Get all presentations and score them
-    const allPresentations = await this.getAllPresentationsForSearch();
-    const scoredResults: SearchResult[] = [];
+    console.log(`Searching for "${trimmedQuery}" (searchInContent: ${searchInContent})`);
 
-    for (const presentation of allPresentations) {
-      const score = calculateSearchScore(searchTerms, presentation, includeFTS);
-      
-      // Only include results with meaningful scores
-      if (score > 10) {
-        const result = this.mapToSearchResult(presentation, query, 'smart');
-        result.relevance_score = Math.round(score);
-        scoredResults.push(result);
-      }
-    }
+    // Normalize the search query for better matching
+    const normalizedQuery = normalizeForSearch(trimmedQuery);
 
-    // Sort by relevance score (highest first) and limit results
-    return scoredResults
-      .sort((a, b) => b.relevance_score - a.relevance_score)
-      .slice(0, limit);
+    return this.performBM25Search(normalizedQuery, searchInContent, limit);
   }
 
-  private async getAllPresentationsForSearch(): Promise<any[]> {
-    const sql = `
-      SELECT id, path, title, content, view_count, is_favorite, file_size,
-             created_at, updated_at, last_accessed, title_normalized, content_normalized
-      FROM presentations
-    `;
+  private async performBM25Search(normalizedQuery: string, searchInContent: boolean, limit: number): Promise<SearchResult[]> {
+    if (!this.db) throw new Error('Database not initialized');
 
-    return new Promise((resolve, reject) => {
-      this.db!.all(sql, [], (err, rows: any[]) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(rows);
-        }
-      });
-    });
-  }
+    // Create FTS5 query - search only in normalized fields
+    const terms = normalizedQuery.split(/\s+/).filter(term => term.length > 0);
+    if (terms.length === 0) return [];
 
-  private async performExactSearch(query: string, normalizedQuery: string): Promise<SearchResult[]> {
-    const searchPattern = `%${query}%`;
-    const normalizedPattern = `%${normalizedQuery}%`;
+    // Build FTS query for normalized fields
+    const ftsQuery = terms.map(term => `"${term}"`).join(' AND ');
 
-    const sql = `
-      SELECT id, path, title, content, view_count, is_favorite, file_size,
-             created_at, updated_at, last_accessed, title_normalized, content_normalized
-      FROM presentations 
-      WHERE title LIKE ? OR content LIKE ? OR title_normalized LIKE ? OR content_normalized LIKE ?
-      ORDER BY 
-        CASE 
-          WHEN title LIKE ? THEN 100
-          WHEN title_normalized LIKE ? THEN 95
-          WHEN content LIKE ? THEN 90
-          WHEN content_normalized LIKE ? THEN 85
-          ELSE 80
-        END DESC,
-        updated_at DESC
-    `;
-
-    return new Promise((resolve, reject) => {
-      this.db!.all(sql, [
-        searchPattern, searchPattern, normalizedPattern, normalizedPattern,
-        searchPattern, normalizedPattern, searchPattern, normalizedPattern
-      ], (err, rows: any[]) => {
-        if (err) {
-          reject(err);
-        } else {
-          const results = rows.map(row => this.mapToSearchResult(row, query, 'exact'));
-          resolve(results);
-        }
-      });
-    });
-  }
-
-  private async performFTSSearch(query: string): Promise<SearchResult[]> {
-    // Use FTS5 MATCH syntax for full-text search
-    const ftsQuery = query.split(' ').map(term => `"${term}"`).join(' OR ');
-
-    const sql = `
+    const sql = searchInContent ? `
       SELECT p.id, p.path, p.title, p.content, p.view_count, p.is_favorite, p.file_size,
-             p.created_at, p.updated_at, p.last_accessed, p.title_normalized, p.content_normalized,
-             rank
-      FROM presentations_fts f
-      JOIN presentations p ON f.rowid = p.id
+             p.created_at, p.updated_at, p.last_accessed,
+             bm25(presentations_fts, 1.0, 10.0, 1.0, 1.0, 1.0) as bm25_score
+      FROM presentations_fts
+      JOIN presentations p ON presentations_fts.rowid = p.id
       WHERE presentations_fts MATCH ?
-      ORDER BY rank
+      ORDER BY 
+        bm25_score ASC,
+        p.is_favorite DESC,
+        p.view_count DESC,
+        p.updated_at DESC
+      LIMIT ?
+    ` : `
+      SELECT p.id, p.path, p.title, p.content, p.view_count, p.is_favorite, p.file_size,
+             p.created_at, p.updated_at, p.last_accessed,
+             bm25(presentations_fts, 1.0, 10.0, 0.0, 0.0, 0.0) as bm25_score
+      FROM presentations_fts
+      JOIN presentations p ON presentations_fts.rowid = p.id
+      WHERE presentations_fts MATCH ?
+      ORDER BY 
+        bm25_score ASC,
+        p.is_favorite DESC,
+        p.view_count DESC,
+        p.updated_at DESC
+      LIMIT ?
     `;
 
-    return new Promise((resolve, reject) => {
-      this.db!.all(sql, [ftsQuery], (err, rows: any[]) => {
-        if (err) {
-          // FTS might not be available or query might be invalid
-          console.log('FTS search failed:', err);
-          resolve([]);
-        } else {
-          const results = rows.map(row => this.mapToSearchResult(row, query, 'fts'));
-          resolve(results);
-        }
-      });
-    });
-  }
-
-  private async performFuzzySearch(query: string, threshold: number): Promise<SearchResult[]> {
-    const sql = `
-      SELECT id, path, title, content, view_count, is_favorite, file_size,
-             created_at, updated_at, last_accessed, title_normalized, content_normalized
-      FROM presentations
-    `;
+    const params = [ftsQuery, limit];
 
     return new Promise((resolve, reject) => {
-      this.db!.all(sql, [], (err, rows: any[]) => {
+      this.db!.all(sql, params, (err, rows: any[]) => {
         if (err) {
+          console.error('BM25 search failed:', err);
           reject(err);
         } else {
-          const results: SearchResult[] = [];
-          const queryLower = query.toLowerCase();
-
-          for (const row of rows) {
-            let maxSimilarity = 0;
-            let matchType: 'exact' | 'fuzzy' | 'fts' = 'fuzzy';
-
-            // Check similarity with title
-            const titleSimilarity = calculateSimilarity(queryLower, row.title?.toLowerCase() || '');
-            maxSimilarity = Math.max(maxSimilarity, titleSimilarity);
-
-            // Check similarity with normalized title
-            const titleNormSimilarity = calculateSimilarity(queryLower, row.title_normalized?.toLowerCase() || '');
-            maxSimilarity = Math.max(maxSimilarity, titleNormSimilarity);
-
-            // For content, check against words to avoid very long comparisons
-            if (row.content) {
-              const contentWords = row.content.toLowerCase().split(/\s+/);
-              const contentNormWords = (row.content_normalized || '').toLowerCase().split(/\s+/);
-              
-              for (const word of contentWords) {
-                if (word.length >= 3) {
-                  const wordSimilarity = calculateSimilarity(queryLower, word);
-                  maxSimilarity = Math.max(maxSimilarity, wordSimilarity * 0.8); // Lower weight for content
-                }
-              }
-              
-              for (const word of contentNormWords) {
-                if (word.length >= 3) {
-                  const wordSimilarity = calculateSimilarity(queryLower, word);
-                  maxSimilarity = Math.max(maxSimilarity, wordSimilarity * 0.75); // Lower weight for normalized content
-                }
-              }
+          const results = rows.map((row, index) => {
+            const result = this.mapToSearchResult(row, normalizedQuery, 'fts');
+            // BM25 score (lower is better, so invert it)
+            let score = Math.max(0, 1000 + (row.bm25_score || 0));
+            if (row.is_favorite) {
+              score += 100;
             }
-
-            if (maxSimilarity >= threshold) {
-              const result = this.mapToSearchResult(row, query, matchType);
-              result.relevance_score = maxSimilarity * 60; // Scale fuzzy scores lower than exact matches
-              results.push(result);
-            }
-          }
-
+            score += Math.min(row.view_count || 0, 50);
+            result.relevance_score = score;
+            return result;
+          });
+          console.log(`Found ${results.length} results using BM25`);
           resolve(results);
         }
       });
     });
   }
 
-  private mapToSearchResult(row: any, query: string, matchType: 'exact' | 'fuzzy' | 'fts' | 'smart'): SearchResult {
+  private mapToSearchResult(row: any, query: string, matchType: 'exact' | 'fts'): SearchResult {
     // Create snippet with highlighted matches
     const titleSnippet = this.createSnippet(row.title || '', query, 100);
     const contentSnippet = this.createSnippet(row.content || '', query, 200);
+    
+    // Extract search terms from the query
+    const searchTerms = query.split(/\s+/).filter(term => term.length > 0);
 
     return {
       path: row.path,
@@ -1001,7 +1070,9 @@ class DatabaseManager {
       title_snippet: titleSnippet,
       content_snippet: contentSnippet,
       relevance_score: 0, // Will be set by caller
-      match_type: matchType
+      match_type: matchType,
+      search_query: query,
+      search_terms: searchTerms
     };
   }
 
@@ -1022,7 +1093,7 @@ class DatabaseManager {
     const end = Math.min(text.length, start + maxLength);
 
     let snippet = text.substring(start, end);
-    
+
     if (start > 0) snippet = '...' + snippet;
     if (end < text.length) snippet = snippet + '...';
 
@@ -1099,15 +1170,30 @@ class DatabaseManager {
   async toggleFavorite(path: string): Promise<number> {
     if (!this.db) throw new Error('Database not initialized');
 
+    // First get the current favorite status
+    const currentStatus = await new Promise<boolean>((resolve, reject) => {
+      this.db!.get(
+        'SELECT is_favorite FROM presentations WHERE path = ?',
+        [path],
+        (err, row: any) => {
+          if (err) reject(err);
+          else resolve(!!row?.is_favorite);
+        }
+      );
+    });
+
+    // Toggle the status
+    const newStatus = !currentStatus;
+    
     return new Promise((resolve, reject) => {
       this.db!.run(
         `UPDATE presentations 
-         SET is_favorite = NOT is_favorite
+         SET is_favorite = ?
          WHERE path = ?`,
-        [path],
+        [newStatus ? 1 : 0, path],
         function(err) {
           if (err) reject(err);
-          else resolve(this.changes);
+          else resolve(newStatus ? 1 : 0);
         }
       );
     });

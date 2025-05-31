@@ -173,9 +173,38 @@ ipcMain.handle('get-sync-status', () => {
 
 ipcMain.handle('recover-database', async () => {
   try {
-    return await database.recoverDatabase();
+    console.log('Starting database recovery...');
+    
+    // Stop sync manager during recovery
+    await syncManager.close();
+    
+    // Recover the database (recreate from scratch)
+    const success = await database.recoverDatabase();
+    
+    if (success) {
+      // Reinitialize sync manager with empty database
+      await syncManager.initialize();
+      console.log('Database recovery completed successfully');
+    } else {
+      // If recovery failed, try to reinitialize sync manager anyway
+      try {
+        await syncManager.initialize();
+      } catch (syncError) {
+        console.error('Failed to reinitialize sync manager after recovery failure:', syncError);
+      }
+    }
+    
+    return success;
   } catch (error) {
     console.error('Error recovering database:', error);
+    
+    // Try to reinitialize sync manager even on error
+    try {
+      await syncManager.initialize();
+    } catch (syncError) {
+      console.error('Failed to reinitialize sync manager after recovery error:', syncError);
+    }
+    
     throw error;
   }
 });

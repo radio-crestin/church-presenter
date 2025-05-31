@@ -6,14 +6,12 @@
   <component name="ChangeListManager">
     <list default="true" id="cd9211aa-ffa9-43ab-902e-cc05049fc72f" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/package-lock.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/forge.config.js" beforeDir="false" afterPath="$PROJECT_DIR$/forge.config.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/database.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/database.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/index.css" beforeDir="false" afterPath="$PROJECT_DIR$/src/index.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/src/index.html" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/index.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/preload.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/preload.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/renderer.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/renderer.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/yarn.lock" beforeDir="false" afterPath="$PROJECT_DIR$/yarn.lock" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -51,6 +49,8 @@
     "nodejs_interpreter_path": "/Users/iosif/.nvm/versions/node/v23.0.0/bin/node",
     "nodejs_package_manager_path": "npm",
     "npm.dev.executor": "Run",
+    "npm.make.executor": "Run",
+    "npm.publish.executor": "Run",
     "npm.start (1).executor": "Run",
     "npm.start.executor": "Run",
     "project.structure.last.edited": "Modules",
@@ -79,7 +79,7 @@
       <recent name="$PROJECT_DIR$" />
     </key>
   </component>
-  <component name="RunManager" selected="npm.start">
+  <component name="RunManager" selected="npm.publish">
     <configuration name="python convert-to-pptx.py /Users/iosif/Documents/Projects/churchPresenter/data/Cantari P.D.C -r" type="PythonConfigurationType" factoryName="Python" temporary="true">
       <module name="convert-to-pptx" />
       <option name="ENV_FILES" value="" />
@@ -126,21 +126,21 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="dev" type="js.build_tools.npm" temporary="true" nameIsGenerated="true">
+    <configuration name="make" type="js.build_tools.npm" temporary="true" nameIsGenerated="true">
       <package-json value="$PROJECT_DIR$/package.json" />
       <command value="run" />
       <scripts>
-        <script value="dev" />
+        <script value="make" />
       </scripts>
       <node-interpreter value="project" />
       <envs />
       <method v="2" />
     </configuration>
-    <configuration name="start (1)" type="js.build_tools.npm" temporary="true" nameIsGenerated="true">
-      <package-json value="$PROJECT_DIR$/church-presenter/package.json" />
+    <configuration name="publish" type="js.build_tools.npm" temporary="true" nameIsGenerated="true">
+      <package-json value="$PROJECT_DIR$/package.json" />
       <command value="run" />
       <scripts>
-        <script value="start" />
+        <script value="publish" />
       </scripts>
       <node-interpreter value="project" />
       <envs />
@@ -158,11 +158,11 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="npm.publish" />
+        <item itemvalue="npm.make" />
         <item itemvalue="npm.start" />
         <item itemvalue="Python.python convert-to-pptx.py &quot;/Users/iosif/Documents/Projects/churchPresenter/data/Cantari P.D.C&quot; -r" />
         <item itemvalue="Python.python convert-to-pptx.py &quot;/Users/iosif/Documents/Projects/churchPresenter/data/Cantari P.D.C&quot; -r" />
-        <item itemvalue="Python.python convert-to-pptx.py /Users/iosif/Documents/Projects/churchPresenter/data/Cantari P.D.C -r" />
-        <item itemvalue="Python.python convert-to-pptx.py /Users/iosif/Documents/Projects/churchPresenter/data/Cantari P.D.C -r" />
       </list>
     </recent_temporary>
   </component>
