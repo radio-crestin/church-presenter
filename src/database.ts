@@ -1128,6 +1128,40 @@ class DatabaseManager {
     });
   }
 
+  async removePresentationsByPathPrefix(pathPrefix: string): Promise<number> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    return new Promise((resolve, reject) => {
+      this.db!.run(
+        'DELETE FROM presentations WHERE path LIKE ?',
+        [pathPrefix + '%'],
+        function(err) {
+          if (err) reject(err);
+          else resolve(this.changes);
+        }
+      );
+    });
+  }
+
+  async removePresentationsByFolderPath(folderPath: string): Promise<number> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    // Normalize the folder path to ensure consistent matching
+    const normalizedPath = folderPath.replace(/\\/g, '/').replace(/\/$/, '');
+    const pathPattern = normalizedPath + '/%';
+
+    return new Promise((resolve, reject) => {
+      this.db!.run(
+        'DELETE FROM presentations WHERE path LIKE ? OR path LIKE ?',
+        [pathPattern, normalizedPath.replace(/\//g, '\\') + '\\%'],
+        function(err) {
+          if (err) reject(err);
+          else resolve(this.changes);
+        }
+      );
+    });
+  }
+
   async getSetting(key: string): Promise<string | null> {
     if (!this.db) throw new Error('Database not initialized');
 
@@ -1252,16 +1286,71 @@ class DatabaseManager {
   async deleteCategory(id: number): Promise<number> {
     if (!this.db) throw new Error('Database not initialized');
 
-    return new Promise((resolve, reject) => {
-      this.db!.run(
-        'DELETE FROM categories WHERE id = ?',
-        [id],
-        function(err) {
+    try {
+      // Begin transaction for atomic operations
+      await new Promise<void>((resolve, reject) => {
+        this.db!.run('BEGIN TRANSACTION', (err) => {
           if (err) reject(err);
-          else resolve(this.changes);
-        }
-      );
-    });
+          else resolve();
+        });
+      });
+
+      // First, get all folder paths for this category to clean up presentations
+      const folderPaths = await new Promise<string[]>((resolve, reject) => {
+        this.db!.all(
+          'SELECT path FROM folders WHERE category_id = ?',
+          [id],
+          (err, rows: any[]) => {
+            if (err) reject(err);
+            else resolve(rows.map(row => row.path));
+          }
+        );
+      });
+
+      // Remove all presentations from these folders
+      let totalPresentationsRemoved = 0;
+      for (const folderPath of folderPaths) {
+        const removed = await this.removePresentationsByFolderPath(folderPath);
+        totalPresentationsRemoved += removed;
+        console.log(`Removed ${removed} presentations from folder: ${folderPath}`);
+      }
+
+      // Delete the category (this will cascade delete folders due to foreign key constraint)
+      const categoryChanges = await new Promise<number>((resolve, reject) => {
+        this.db!.run(
+          'DELETE FROM categories WHERE id = ?',
+          [id],
+          function(err) {
+            if (err) reject(err);
+            else resolve(this.changes);
+          }
+        );
+      });
+
+      // Commit transaction
+      await new Promise<void>((resolve, reject) => {
+        this.db!.run('COMMIT', (err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+
+      console.log(`Deleted category and ${totalPresentationsRemoved} associated presentations`);
+      return categoryChanges;
+
+    } catch (error) {
+      // Rollback on error
+      try {
+        await new Promise<void>((resolve, reject) => {
+          this.db!.run('ROLLBACK', (err) => {
+            resolve(); // Don't reject on rollback errors
+          });
+        });
+      } catch (rollbackError) {
+        console.error('Error during rollback:', rollbackError);
+      }
+      throw error;
+    }
   }
 
   async addFolderToCategory(categoryId: number, path: string, name?: string): Promise<number> {
@@ -1285,16 +1374,68 @@ class DatabaseManager {
   async removeFolderFromCategory(folderId: number): Promise<number> {
     if (!this.db) throw new Error('Database not initialized');
 
-    return new Promise((resolve, reject) => {
-      this.db!.run(
-        'DELETE FROM folders WHERE id = ?',
-        [folderId],
-        function(err) {
+    try {
+      // Begin transaction for atomic operations
+      await new Promise<void>((resolve, reject) => {
+        this.db!.run('BEGIN TRANSACTION', (err) => {
           if (err) reject(err);
-          else resolve(this.changes);
-        }
-      );
-    });
+          else resolve();
+        });
+      });
+
+      // First, get the folder path to clean up presentations
+      const folderPath = await new Promise<string | null>((resolve, reject) => {
+        this.db!.get(
+          'SELECT path FROM folders WHERE id = ?',
+          [folderId],
+          (err, row: any) => {
+            if (err) reject(err);
+            else resolve(row?.path || null);
+          }
+        );
+      });
+
+      if (folderPath) {
+        // Remove all presentations from this folder
+        const presentationsRemoved = await this.removePresentationsByFolderPath(folderPath);
+        console.log(`Removed ${presentationsRemoved} presentations from folder: ${folderPath}`);
+      }
+
+      // Delete the folder
+      const folderChanges = await new Promise<number>((resolve, reject) => {
+        this.db!.run(
+          'DELETE FROM folders WHERE id = ?',
+          [folderId],
+          function(err) {
+            if (err) reject(err);
+            else resolve(this.changes);
+          }
+        );
+      });
+
+      // Commit transaction
+      await new Promise<void>((resolve, reject) => {
+        this.db!.run('COMMIT', (err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+
+      return folderChanges;
+
+    } catch (error) {
+      // Rollback on error
+      try {
+        await new Promise<void>((resolve, reject) => {
+          this.db!.run('ROLLBACK', (err) => {
+            resolve(); // Don't reject on rollback errors
+          });
+        });
+      } catch (rollbackError) {
+        console.error('Error during rollback:', rollbackError);
+      }
+      throw error;
+    }
   }
 
   async getAllFolderPaths(): Promise<string[]> {

@@ -91,6 +91,7 @@ class SyncManager {
         .on('add', (filePath: string) => this.handleFileAdded(filePath))
         .on('change', (filePath: string) => this.handleFileChanged(filePath))
         .on('unlink', (filePath: string) => this.handleFileDeleted(filePath))
+        .on('unlinkDir', (dirPath: string) => this.handleDirectoryDeleted(dirPath))
         .on('error', (error: unknown) => console.error(`Watcher error for ${resolvedPath}:`, error));
 
       this.watchers.set(resolvedPath, watcher);
@@ -124,6 +125,19 @@ class SyncManager {
     }
   }
 
+  private async handleDirectoryDeleted(dirPath: string): Promise<void> {
+    console.log(`Directory deleted: ${dirPath}`);
+    try {
+      // Remove all presentations from this directory and its subdirectories
+      const removedCount = await database.removePresentationsByFolderPath(dirPath);
+      if (removedCount > 0) {
+        console.log(`Removed ${removedCount} presentations from deleted directory: ${dirPath}`);
+      }
+    } catch (error) {
+      console.error(`Error handling directory deletion for ${dirPath}:`, error);
+    }
+  }
+
   private async indexFile(filePath: string): Promise<void> {
     try {
       const presentation = await presentationParser.parsePresentationFile(filePath);
@@ -149,10 +163,14 @@ class SyncManager {
       const watchDirs = await this.getWatchDirectories();
       const allFiles: string[] = [];
 
-      // Collect all supported files from all directories
+      // Clean up presentations from non-existent directories first
       for (const dirPath of watchDirs) {
         if (!fs.existsSync(dirPath)) {
-          console.warn(`Skipping non-existent directory: ${dirPath}`);
+          console.warn(`Directory no longer exists, cleaning up presentations: ${dirPath}`);
+          const removedCount = await database.removePresentationsByFolderPath(dirPath);
+          if (removedCount > 0) {
+            console.log(`Removed ${removedCount} presentations from non-existent directory: ${dirPath}`);
+          }
           continue;
         }
 

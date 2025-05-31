@@ -191,9 +191,6 @@ ipcMain.handle('select-folder', async () => {
     });
 
     console.log('Dialog result:', JSON.stringify(result, null, 2));
-    console.log('Canceled:', result.canceled);
-    console.log('File paths:', result.filePaths);
-    console.log('File paths length:', result.filePaths?.length);
 
     return result;
   } catch (error) {
