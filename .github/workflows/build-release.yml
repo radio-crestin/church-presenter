@@ -35,6 +35,28 @@ jobs:
           cd scripts/convert-to-pptx
           pip install -r requirements.txt
           
+      - name: Setup macOS code signing
+        if: matrix.os == 'macos-latest'
+        run: |
+          # Create a temporary keychain
+          security create-keychain -p "temp123" temp.keychain
+          security default-keychain -s temp.keychain
+          security unlock-keychain -p "temp123" temp.keychain
+          
+          # Import certificates if they exist
+          if [ ! -z "${{ secrets.MACOS_CERTIFICATE }}" ]; then
+            echo "${{ secrets.MACOS_CERTIFICATE }}" | base64 --decode > certificate.p12
+            security import certificate.p12 -k temp.keychain -P "${{ secrets.MACOS_CERTIFICATE_PWD }}" -T /usr/bin/codesign
+            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "temp123" temp.keychain
+            echo "CODESIGN_ENABLED=true" >> $GITHUB_ENV
+          else
+            echo "No macOS certificate found, skipping code signing"
+            echo "CODESIGN_ENABLED=false" >> $GITHUB_ENV
+          fi
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+          
       - name: Install dependencies
         run: yarn install --frozen-lockfile
         
@@ -45,18 +67,46 @@ jobs:
         run: yarn make
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PWD: ${{ secrets.APPLE_ID_PWD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           
-      - name: List build outputs (debug)
+      - name: List build outputs (debug) - Unix
+        if: runner.os != 'Windows'
         run: |
           echo "Build outputs:"
           find ./out -type f -name "*" | head -20 || echo "No out directory found"
           
-      - name: Find and upload artifacts
+      - name: List build outputs (debug) - Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Write-Host "Build outputs:"
+          if (Test-Path "./out") {
+            Get-ChildItem -Path "./out" -Recurse -File | Select-Object -First 20 | ForEach-Object { Write-Host $_.FullName }
+          } else {
+            Write-Host "No out directory found"
+          }
+          
+      - name: Find and upload artifacts (Unix)
+        if: runner.os != 'Windows'
         run: |
           # Find all artifacts and upload them
           for file in $(find ./out/make -type f \( -name "*.zip" -o -name "*.deb" -o -name "*.rpm" -o -name "*.exe" -o -name "*.dmg" -o -name "*.AppImage" \) 2>/dev/null); do
             echo "Found artifact: $file"
             gh release upload ${{ github.event.release.tag_name }} "$file" --clobber
           done
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Find and upload artifacts (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # Find all artifacts and upload them
+          Get-ChildItem -Path "./out/make" -Recurse -Include @("*.zip", "*.deb", "*.rpm", "*.exe", "*.dmg", "*.AppImage") | ForEach-Object {
+            Write-Host "Found artifact: $($_.FullName)"
+            gh release upload ${{ github.event.release.tag_name }} "$($_.FullName)" --clobber
+          }
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

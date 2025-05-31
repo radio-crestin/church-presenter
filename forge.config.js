@@ -4,6 +4,18 @@ const { FuseV1Options, FuseVersion } = require('@electron/fuses');
 module.exports = {
   packagerConfig: {
     asar: true,
+    osxSign: process.env.CODESIGN_ENABLED === 'true' ? {
+      identity: 'Developer ID Application',
+      'hardened-runtime': true,
+      'gatekeeper-assess': false,
+      'entitlements': 'entitlements.plist',
+      'entitlements-inherit': 'entitlements.plist',
+    } : false,
+    osxNotarize: process.env.APPLE_ID ? {
+      appleId: process.env.APPLE_ID,
+      appleIdPassword: process.env.APPLE_ID_PWD,
+      teamId: process.env.APPLE_TEAM_ID,
+    } : false,
   },
   rebuildConfig: {},
   makers: [
