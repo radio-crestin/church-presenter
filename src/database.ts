@@ -2,6 +2,7 @@ import sqlite3 from 'sqlite3';
 import path from 'path';
 import { app } from 'electron';
 import fs from 'fs';
+import os from 'os';
 
 interface Migration {
   version: number;
@@ -1596,6 +1597,86 @@ class DatabaseManager {
         }
       });
     });
+  }
+
+  private createAlphanumericVersion(text: string): string {
+    if (!text) return '';
+    
+    // Extract only alphanumeric characters and normalize
+    return text
+      .replace(/[^a-zA-Z0-9\s]/g, ' ') // Replace non-alphanumeric with spaces
+      .replace(/\s+/g, ' ') // Normalize whitespace
+      .toLowerCase()
+      .trim();
+  }
+
+  async reindexDatabase(directories: string[], options: { batchSize?: number; maxWorkers?: number } = {}): Promise<{ success: boolean; processed: number; errors: number; timeMs: number }> {
+    const startTime = Date.now();
+    console.log('Starting database reindex operation...');
+    
+    try {
+      // Import reindex manager dynamically to avoid circular dependencies
+      const { default: reindexManager } = await import('./reindex-manager');
+      
+      // Configure reindex options
+      const reindexOptions = {
+        maxWorkers: options.maxWorkers || Math.min(Math.max(os.cpus().length, 8), 16),
+        batchSize: options.batchSize || 50,
+        flushIntervalMs: 5000,
+        prioritizeRecent: true
+      };
+      
+      console.log(`Reindex configured: ${reindexOptions.maxWorkers} workers, batch size ${reindexOptions.batchSize}`);
+      
+      // Track progress
+      let totalProcessed = 0;
+      let totalErrors = 0;
+      
+      reindexManager.on('progress', (progress) => {
+        console.log(`Reindex progress: ${progress.processedFiles}/${progress.totalFiles} files (${progress.filesPerSecond.toFixed(1)} files/sec, ${progress.workersActive} workers active)`);
+      });
+      
+      reindexManager.on('batchFlushed', (info) => {
+        console.log(`Batch ${info.totalBatches} flushed: ${info.batchSize} items in ${info.flushTime}ms`);
+      });
+      
+      // Start reindex operation
+      await reindexManager.startReindex(directories, reindexOptions);
+      
+      // Wait for completion
+      await new Promise<void>((resolve, reject) => {
+        reindexManager.once('completed', (result) => {
+          totalProcessed = result.successfulFiles;
+          totalErrors = result.failedFiles;
+          resolve();
+        });
+        
+        reindexManager.once('error', (error) => {
+          reject(error);
+        });
+      });
+      
+      const timeMs = Date.now() - startTime;
+      console.log(`Database reindex completed: ${totalProcessed} processed, ${totalErrors} errors in ${timeMs}ms`);
+      
+      return {
+        success: true,
+        processed: totalProcessed,
+        errors: totalErrors,
+        timeMs
+      };
+      
+    } catch (error) {
+      const timeMs = Date.now() - startTime;
+      console.error('Database reindex failed:', error);
+      
+      return {
+        success: false,
+        processed: 0,
+        errors: 1,
+        timeMs
+      };
+    }
   }
 
   async close(): Promise<void> {

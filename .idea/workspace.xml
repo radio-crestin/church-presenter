@@ -6,11 +6,10 @@
   <component name="ChangeListManager">
     <list default="true" id="cd9211aa-ffa9-43ab-902e-cc05049fc72f" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/convert-to-pptx/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/convert-to-pptx/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/convert-to-pptx/convert-to-pptx.py" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/convert-to-pptx/convert-to-pptx.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/convert-to-pptx/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/convert-to-pptx/requirements.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/database.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/database.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/index.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/presentation-parser.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/presentation-parser.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/yarn.lock" beforeDir="false" afterPath="$PROJECT_DIR$/yarn.lock" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -82,7 +81,51 @@
       <recent name="$PROJECT_DIR$" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.python convert-to-pptx.py &quot;/Users/iosif/Documents/Projects/churchPresenter/data/Cantari P.D.C&quot; -r">
+  <component name="RunManager" selected="Python.python convert-to-pptx.py &quot;C:\Users\Adunare\Documents\cantari\Cantari power point&quot; -r">
+    <configuration name="python convert-to-pptx.py &quot;C:\Users\Adunare\Documents\cantari&quot; -r" type="PythonConfigurationType" factoryName="Python">
+      <module name="church-presenter" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="C:\Users\Adunare\AppData\Local\Microsoft\WindowsApps\python3.7.exe" />
+      <option name="SDK_NAME" value="Python 3.7" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/scripts/convert-to-pptx" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="convert-to-pptx.py" />
+      <option name="PARAMETERS" value="C:\Users\Adunare\Documents\cantari -r" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="python convert-to-pptx.py &quot;C:\Users\Adunare\Documents\cantari\Cantari power point&quot; -r" type="PythonConfigurationType" factoryName="Python">
+      <module name="church-presenter" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="C:\Users\Adunare\AppData\Local\Microsoft\WindowsApps\python3.7.exe" />
+      <option name="SDK_NAME" value="Python 3.7" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/scripts/convert-to-pptx" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="convert-to-pptx.py" />
+      <option name="PARAMETERS" value="&quot;C:\Users\Adunare\Documents\cantari\Cantari power point&quot; -r" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
     <configuration name="python convert-to-pptx.py /Users/iosif/Documents/Projects/churchPresenter/data/Cantari P.D.C -r" type="PythonConfigurationType" factoryName="Python" temporary="true">
       <module name="convert-to-pptx" />
       <option name="INTERPRETER_OPTIONS" value="" />
