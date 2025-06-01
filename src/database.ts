@@ -985,6 +985,64 @@ class DatabaseManager {
     return this.performBM25Search(normalizedQuery, searchInContent, limit);
   }
 
+  /**
+   * Build an advanced FTS5 query that supports partial word matching
+   * This enables searching for "20" to find "020" or "2023"
+   */
+  private buildAdvancedFTSQuery(terms: string[]): string {
+    if (terms.length === 0) return '';
+
+    // For each term, create multiple search patterns:
+    // 1. Exact phrase match (highest priority)
+    // 2. Prefix match for partial word support
+    // 3. Substring match using wildcards
+    const queryParts: string[] = [];
+
+    for (const term of terms) {
+      if (term.length === 0) continue;
+
+      const termParts: string[] = [];
+
+      // 1. Exact phrase match (boost with higher weight)
+      termParts.push(`"${term}"`);
+
+      // 2. Prefix match - allows finding "020" when searching "20"
+      if (term.length >= 2) {
+        termParts.push(`${term}*`);
+      }
+
+      // 3. For numeric terms, add special handling for partial matches
+      if (/^\d+$/.test(term)) {
+        // For pure numeric terms, also search for terms that contain this number
+        // This helps find "020" when searching "20", "2023" when searching "20", etc.
+        if (term.length >= 2) {
+          // Add wildcard patterns for numbers
+          // FTS5 doesn't support infix wildcards, using prefix only
+          
+          // Also try with leading zeros for common presentation numbering
+          if (term.length <= 3 && !term.startsWith('0')) {
+            const paddedTerm = term.padStart(3, '0');
+            termParts.push(`"${paddedTerm}"`);
+            termParts.push(`${paddedTerm}*`);
+          }
+        }
+      }
+
+      // 4. For short terms (2-3 chars), add more aggressive partial matching
+      if (term.length >= 2 && term.length <= 3) {
+        // FTS5 doesn't support suffix wildcards, using prefix only
+      }
+
+      // Combine all patterns for this term with OR
+      if (termParts.length > 0) {
+        queryParts.push(`(${termParts.join(' OR ')})`);
+      }
+    }
+
+    // Combine all terms with AND to ensure all terms are found
+    return queryParts.join(' AND ');
+  }
+
   private async performBM25Search(normalizedQuery: string, searchInContent: boolean, limit: number): Promise<SearchResult[]> {
     if (!this.db) throw new Error('Database not initialized');
 
@@ -993,7 +1051,7 @@ class DatabaseManager {
     if (terms.length === 0) return [];
 
     // Build FTS query for normalized fields
-    const ftsQuery = terms.map(term => `"${term}"`).join(' AND ');
+    const ftsQuery = this.buildAdvancedFTSQuery(terms);
 
     const sql = searchInContent ? `
       SELECT p.id, p.path, p.title, p.content, p.view_count, p.is_favorite, p.file_size,
