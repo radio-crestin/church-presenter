@@ -7,7 +7,20 @@ const officeParser = require('officeparser');
 class PresentationParser {
   private readonly supportedExtensions = ['.pptx', '.ppt'];
 
+  /**
+   * Check if a file is a Windows temporary file (starts with ~$)
+   */
+  private isTemporaryFile(filePath: string): boolean {
+    const fileName = path.basename(filePath);
+    return fileName.startsWith('~$');
+  }
+
   isSupportedFile(filePath: string): boolean {
+    // Skip Windows temporary files
+    if (this.isTemporaryFile(filePath)) {
+      return false;
+    }
+    
     const ext = path.extname(filePath).toLowerCase();
     return this.supportedExtensions.includes(ext);
   }
@@ -31,7 +44,7 @@ class PresentationParser {
       return {
         title: fileName,
         content: content,
-        path: filePath,
+        path: path.normalize(filePath), // Ensure path is properly normalized
         fileSize: stats.size
       };
     } catch (error) {

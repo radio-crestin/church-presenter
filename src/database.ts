@@ -774,7 +774,7 @@ class DatabaseManager {
     // Validate required parameters
     const safeTitle = title || 'Untitled Presentation';
     const safeContent = content || '';
-    const safeFilePath = filePath || '';
+    const safeFilePath = path.normalize(filePath || '').replace(/\\/g, '/'); // Normalize path for consistent storage
     const safeFileSize = fileSize || 0;
 
     if (!safeFilePath) {
@@ -884,7 +884,7 @@ class DatabaseManager {
           // Validate required parameters
           const safeTitle = title || 'Untitled Presentation';
           const safeContent = content || '';
-          const safeFilePath = filePath || '';
+          const safeFilePath = path.normalize(filePath || '').replace(/\\/g, '/'); // Normalize path for consistent storage
           const safeFileSize = fileSize || 0;
 
           if (!safeFilePath) {

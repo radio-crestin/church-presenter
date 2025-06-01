@@ -5,7 +5,7 @@
   "description": "My Electron application description",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc && cp src/index.html src/index.css dist/ 2>/dev/null || true",
+    "build": "tsc && mkdirp dist && copyfiles --up 1 src/index.html src/index.css dist",
     "start": "npm run build && electron-forge start",
     "package": "npm run build && electron-forge package",
     "make": "npm run build && electron-forge make",
@@ -38,7 +38,10 @@
     "@types/electron": "^1.4.38",
     "@types/node": "^22.15.21",
     "@types/sqlite3": "^3.1.11",
+    "copyfiles": "^2.4.1",
+    "cross-env": "^7.0.3",
     "electron": "36.3.1",
+    "mkdirp": "^3.0.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3"
   },

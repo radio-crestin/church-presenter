@@ -5,7 +5,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="cd9211aa-ffa9-43ab-902e-cc05049fc72f" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/package-lock.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/database.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/database.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/index.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/presentation-parser.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/presentation-parser.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/yarn.lock" beforeDir="false" afterPath="$PROJECT_DIR$/yarn.lock" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -18,6 +23,9 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
+  <component name="MarkdownSettingsMigration">
+    <option name="stateVersion" value="1" />
+  </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 7
 }</component>
@@ -26,43 +34,44 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "Python.python convert-to-pptx.py \"/Users/iosif/Documents/Projects/churchPresenter/data/Cantari P.D.C\" -r.executor": "Run",
-    "Python.python convert-to-pptx.py /Users/iosif/Documents/Projects/churchPresenter/data/Cantari P.D.C -r.executor": "Run",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "main",
-    "javascript.nodejs.core.library.configured.version": "23.0.0",
-    "javascript.nodejs.core.library.typings.version": "22.15.21",
-    "last_opened_file_path": "/Users/iosif/Documents/Projects/churchPresenter/dist",
-    "node.js.detected.package.eslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "nodejs_interpreter_path": "/Users/iosif/.nvm/versions/node/v23.0.0/bin/node",
-    "nodejs_package_manager_path": "npm",
-    "npm.dev.executor": "Run",
-    "npm.make.executor": "Run",
-    "npm.publish.executor": "Run",
-    "npm.start (1).executor": "Run",
-    "npm.start.executor": "Run",
-    "project.structure.last.edited": "Modules",
-    "project.structure.proportion": "0.15",
-    "project.structure.side.proportion": "0.36091954",
-    "settings.editor.selected.configurable": "settings.nodejs",
-    "ts.external.directory.path": "/Users/iosif/Documents/Projects/churchPresenter/node_modules/typescript/lib"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;Python.python convert-to-pptx.py \&quot;/Users/iosif/Documents/Projects/churchPresenter/data/Cantari P.D.C\&quot; -r.executor&quot;: &quot;Run&quot;,
+    &quot;Python.python convert-to-pptx.py /Users/iosif/Documents/Projects/churchPresenter/data/Cantari P.D.C -r.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;javascript.nodejs.core.library.configured.version&quot;: &quot;23.0.0&quot;,
+    &quot;javascript.nodejs.core.library.typings.version&quot;: &quot;22.15.21&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/Adunare/Documents/GitHub/church-presenter&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_interpreter_path&quot;: &quot;/Users/iosif/.nvm/versions/node/v23.0.0/bin/node&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;npm.dev.executor&quot;: &quot;Run&quot;,
+    &quot;npm.make.executor&quot;: &quot;Run&quot;,
+    &quot;npm.publish.executor&quot;: &quot;Run&quot;,
+    &quot;npm.start (1).executor&quot;: &quot;Run&quot;,
+    &quot;npm.start.executor&quot;: &quot;Run&quot;,
+    &quot;project.structure.last.edited&quot;: &quot;Modules&quot;,
+    &quot;project.structure.proportion&quot;: &quot;0.15&quot;,
+    &quot;project.structure.side.proportion&quot;: &quot;0.36091954&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;settings.nodejs&quot;,
+    &quot;ts.external.directory.path&quot;: &quot;/Users/iosif/Documents/Projects/churchPresenter/node_modules/typescript/lib&quot;
   },
-  "keyToStringList": {
-    "DatabaseDriversLRU": [
-      "sqlite",
-      "duckdb"
+  &quot;keyToStringList&quot;: {
+    &quot;DatabaseDriversLRU&quot;: [
+      &quot;sqlite&quot;,
+      &quot;duckdb&quot;
     ],
-    "com.intellij.ide.scratch.ScratchImplUtil$2/New Scratch File": [
-      "TEXT"
+    &quot;com.intellij.ide.scratch.ScratchImplUtil$2/New Scratch File&quot;: [
+      &quot;TEXT&quot;
     ]
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/dist" />
@@ -73,10 +82,9 @@
       <recent name="$PROJECT_DIR$" />
     </key>
   </component>
-  <component name="RunManager" selected="npm.publish">
+  <component name="RunManager" selected="Python.python convert-to-pptx.py &quot;/Users/iosif/Documents/Projects/churchPresenter/data/Cantari P.D.C&quot; -r">
     <configuration name="python convert-to-pptx.py /Users/iosif/Documents/Projects/churchPresenter/data/Cantari P.D.C -r" type="PythonConfigurationType" factoryName="Python" temporary="true">
       <module name="convert-to-pptx" />
-      <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
       <envs>
@@ -99,7 +107,6 @@
     </configuration>
     <configuration name="python convert-to-pptx.py &quot;/Users/iosif/Documents/Projects/churchPresenter/data/Cantari P.D.C&quot; -r" type="PythonConfigurationType" factoryName="Python" temporary="true">
       <module name="convert-to-pptx" />
-      <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
       <envs>
@@ -152,9 +159,6 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="npm.publish" />
-        <item itemvalue="npm.make" />
-        <item itemvalue="npm.start" />
         <item itemvalue="Python.python convert-to-pptx.py &quot;/Users/iosif/Documents/Projects/churchPresenter/data/Cantari P.D.C&quot; -r" />
         <item itemvalue="Python.python convert-to-pptx.py &quot;/Users/iosif/Documents/Projects/churchPresenter/data/Cantari P.D.C&quot; -r" />
       </list>
@@ -168,6 +172,7 @@
       </set>
     </attachedChunks>
   </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
   <component name="TaskManager">
     <task active="true" id="Default" summary="Default task">
       <changelist id="cd9211aa-ffa9-43ab-902e-cc05049fc72f" name="Changes" comment="" />
@@ -187,23 +192,8 @@
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
   </component>
-  <component name="XDebuggerManager">
-    <breakpoint-manager>
-      <breakpoints>
-        <line-breakpoint enabled="true" type="javascript">
-          <url>file://$PROJECT_DIR$/src/db/connection.ts</url>
-          <line>27</line>
-          <option name="timeStamp" value="6" />
-        </line-breakpoint>
-      </breakpoints>
-    </breakpoint-manager>
-  </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />
     <select />
-  </component>
-  <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/churchPresenter$python_convert_to_pptx_py__Users_iosif_Documents_Projects_churchPresenter_data_Cantari_P_D_C__r.coverage" NAME="python convert-to-pptx.py /Users/iosif/Documents/Projects/churchPresenter/data/Cantari P.D.C -r Coverage Results" MODIFIED="1748693747256" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/scripts/convert-to-pptx" />
-    <SUITE FILE_PATH="coverage/churchPresenter$python_convert_to_pptx_py___Users_iosif_Documents_Projects_churchPresenter_data_Cantari_P_D_C___r.coverage" NAME="python convert-to-pptx.py &quot;/Users/iosif/Documents/Projects/churchPresenter/data/Cantari P.D.C&quot; -r Coverage Results" MODIFIED="1748694462308" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/scripts/convert-to-pptx" />
   </component>
 </project>
